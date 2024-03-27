@@ -1,0 +1,37 @@
+data_path: recbole_tmp
+field_separator: "\t"
+
+# dataset config
+USER_ID_FIELD: user_id
+ITEM_ID_FIELD: item_id
+load_col:
+    inter: [user_id, item_id]
+save_dataset: False
+save_dataloaders: False
+
+# model
+embedding_size: 256
+MAX_ITEM_LIST_LENGTH: 500
+
+# Training and evaluation config
+epochs: 200 # We do early stopping, in WS23/24 experiments this was never reached
+train_batch_size: 1 # TODO: set to 2048
+eval_batch_size: 32
+# Do Validation after every n epochs
+eval_step: 1
+stopping_step: 5 # Stop if validation metric does not improve for 5 epochs
+train_neg_sample_args:
+    distribution: uniform
+eval_args:
+    group_by: user
+    order: RO
+    split: {'RS': [0.8, 0.2, 0]} # 80-20 split between Train and Validation Set. Test set is not relevant for this setup.
+    mode: full
+metrics: ['NDCG'] # 'Recall', 'Precision', 'MRR', 'Hit'
+topk: 10 # report only the number that is actually used for early stopping.
+valid_metric: NDCG@10
+metric_decimal_place: 6
+
+# hardware settings
+use_gpu: True # will default to CPU if no GPU is available
+gpu_id: 0

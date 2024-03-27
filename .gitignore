@@ -14,3 +14,14 @@ venv*/
 *.cpython*
 *.pyd
 *build/
+
+./log/
+./log_tensorboard/
+./recbole_tmp/
+./saved/
+
+# experiments other than the example subfolder
+experiments/*
+!experiments/example/
+experiments/example/*
+!experiments/example/input/

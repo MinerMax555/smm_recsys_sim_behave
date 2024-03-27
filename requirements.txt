@@ -1,0 +1,4 @@
+argh==0.31.2
+recbole==1.2.0
+pandas==2.2.1
+ray[tune]==2.10.0
