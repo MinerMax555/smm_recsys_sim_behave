@@ -1,0 +1,27 @@
+# IDEs
+.vscode/
+.idea/
+
+# virtual environments
+venv*/
+
+# python compilates
+*__pycache__*
+*.pyc
+
+# *.pyx stuff
+*.c
+*.cpython*
+*.pyd
+*build/
+
+# unneeded original datasets & derivative datasets (such as smm_demo_1)
+data
+data_outputs/*
+# recbole & recbole
+log/
+log_tensorboard/
+!log_tensorboard/*.zip
+saved/
+
+tensorboard_*

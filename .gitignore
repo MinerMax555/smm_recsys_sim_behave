@@ -1,0 +1,16 @@
+# IDEs
+.vscode/
+.idea/
+
+# virtual environments
+venv*/
+
+# python compilates
+*__pycache__*
+*.pyc
+
+# *.pyx stuff
+*.c
+*.cpython*
+*.pyd
+*build/

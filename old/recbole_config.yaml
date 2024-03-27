@@ -1,0 +1,41 @@
+# dataset
+data_path: data
+# dataset: ml-1m
+field_separator: "\t"
+
+# dataset config
+USER_ID_FIELD: user_id
+ITEM_ID_FIELD: item_id
+load_col:
+    inter: [user_id, item_id]
+save_dataset: True
+save_dataloaders: True
+
+# model
+embedding_size: 256 # unless explicitly overwritten
+MAX_ITEM_LIST_LENGTH: 500
+
+# Training and evaluation config
+epochs: 200 # kinda arbitrary
+train_batch_size: 2048
+# RecBole does weird stuff with this parameter internally, multiply whatever batch size you actually want with
+# 10001 (amount of items in validation set???)
+eval_batch_size: 320032 # replace with lower multiple of 10001 if you run out of memory
+eval_step: 2 # evaluate after every n epochs
+stopping_step: 5 # Stop if validation metric does not improve for 5 epochs
+train_neg_sample_args:
+    distribution: uniform
+eval_args:
+    group_by: user
+    order: RO
+    split: {'RS': [0.6, 0.2, 0.2]} # 60-20-20 split
+    mode: full
+metrics: ['NDCG'] # 'Recall', 'Precision', 'MRR', 'Hit'
+topk: 10 # report only the number that is actually used for early stopping.
+valid_metric: NDCG@10
+metric_decimal_place: 6
+benchmark_filename: ['train', 'validate', 'test']
+
+# hardware settings
+use_gpu: True # will default to CPU if no GPU is available
+gpu_id: 0
