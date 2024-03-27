@@ -1,4 +1,6 @@
 argh==0.31.2
-recbole==1.2.0
+numpy==1.26.4
 pandas==2.2.1
 ray[tune]==2.10.0
+recbole==1.2.0
+tqdm==4.66.2

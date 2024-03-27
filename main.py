@@ -3,11 +3,15 @@ import shutil
 from pathlib import Path
 
 import argh
+import numpy as np
+import pandas as pd
 from argh import arg
 from recbole.config import Config
-from recbole.quick_start import run_recbole
+from recbole.quick_start import load_data_and_model
+from tqdm import tqdm
 
-from recbole_wrapper import run_recbole_experiment
+from choice_models import accept_new_recommendations, prefilter_recommendations
+from recbole_wrapper import run_recbole_experiment, get_recbole_scores
 
 EXPERIMENTS_FOLDER = Path('experiments')
 
@@ -41,8 +45,11 @@ def prepare_run(dataset_name: str, iteration: int, clean=False) -> tuple[Path, P
     if not tracks_file.exists():
         raise FileNotFoundError(f'Dataset invalid: input/tracks.tsv file missing')
 
-    # Create recbole_workdir if it doesn't exist
+    shutil.rmtree('recbole_tmp', ignore_errors=True)
+    shutil.rmtree('saved', ignore_errors=True)
+    # Create recbole_workdir and saved if it doesn't exist
     (Path('recbole_tmp') / 'dataset').mkdir(exist_ok=True, parents=True)
+    (Path('saved')).mkdir(exist_ok=True, parents=True)
 
     if iteration == 1:
         input_inter_file = experiment_folder / 'input' / f'dataset.inter'
@@ -83,12 +90,40 @@ def cleanup(dataset_name: str, iteration: int):
     for log_file in Path('log_tensorboard').iterdir():
         shutil.move(log_file, log_folder)
 
-
     # remove the saved, log, log_tensorboard and recbole_workdir folder
     shutil.rmtree('saved', ignore_errors=True)
     shutil.rmtree('log', ignore_errors=True)
     shutil.rmtree('log_tensorboard', ignore_errors=True)
     shutil.rmtree('recbole_tmp', ignore_errors=True)
+
+
+def compute_top_k_scores(scores, dataset: str, iteration: int, k=10):
+    """
+    Computes the top k scores per user, saves it into the output folder
+    and returns a dataframe with the new interactions
+    """
+    n = len(scores)
+    item_ids, score = [], []
+
+    for s in tqdm(scores, desc=f'calculating top-{k} item_ids', smoothing=0):
+        items = np.argsort(-s)[:k]
+        # Martin: Only get country-specific items:
+
+        for item in items:
+            item_ids.append(item)
+            score.append(s[item])
+
+    user_ids = []
+    for i in range(n):
+        user_ids.extend([i] * k)
+
+    df = pd.DataFrame.from_dict({
+        'user_id': user_ids,
+        'item_id': item_ids,
+        'rank': list(range(1, k + 1)) * n,
+        'score': score
+    })
+    return df
 
 
 @arg('dataset_name', type=str, help='Name of the dataset (a subfolder under data/) to be evaluated')
@@ -98,12 +133,15 @@ def cleanup(dataset_name: str, iteration: int):
 @arg('-cm', '--choice-model', type=str, help='Name of choice model to be used. See README for available options')
 @arg('-c', '--config', type=str, help='Path to the Recbole config file')
 @arg('-k', type=int, help='Number of items to be recommended per user')
+@arg('-cc', '--control-country', type=str,
+     help='Country to be used as a frozen control group that doesn\'t receive new recommendations')
 @arg('--clean', action=argparse.BooleanOptionalAction,
      help='If True, deletes all files in the data/ output/ and logs/ folders that may be present')
 def do_single_loop(
         dataset_name, iteration, model='ItemKNN', choice_model='random',
         config='recbole_config_default.yaml',
-        k=10, clean=False):
+        k=10, control_country=None,
+        clean=False):
     """
     Executes a single iteration loop consisitng of training, evaluation and the
     addition of new interactions by a choice model. This file only does a single loop at a time and needs to be called as a subprocess.
@@ -111,9 +149,49 @@ def do_single_loop(
     """
     print(f'Preparing iteration {iteration} for dataset/experiment {dataset_name}...')
     data_path, demographics_path, tracks_path = prepare_run(dataset_name, iteration, clean)
+    dataset_df = pd.read_csv(data_path, sep='\t', header=1, names=['user_id:token', 'item_id:token'])
+    demographics_df = pd.read_csv(demographics_path, sep='\t', header=0,
+                                  names=['country', 'age', 'gender', 'registration_time'])
+    tracks_df = pd.read_csv(tracks_path, sep='\t', header=0, names=['title', 'artist', 'country'])
     print(' Done!')
 
-    trained_model = run_recbole_experiment(model=model, dataset=dataset_name, iteration=iteration, config_path=config)
+    config = Config(model=model, dataset='dataset', config_file_list=[config])
+    # Use Recbole to obtain a trained model
+    run_recbole_experiment(model=model, dataset=dataset_name, iteration=iteration, config=config)
+
+    # There should only be one model file in saved folder, get its path
+    model_path = str(next(Path('saved').iterdir()))
+    config, model, dataset, _, _, test_data = load_data_and_model(model_file=model_path)
+
+    # Obtain recommendation scores
+    scores = get_recbole_scores(model, dataset, test_data, config)
+
+    # Obtain top k scores and save them for later analysis
+    top_k_df = compute_top_k_scores(scores, dataset_name, iteration, k=k)
+    top_k_df.to_csv(
+        EXPERIMENTS_FOLDER / dataset_name / 'output' / f'iteration_{iteration}_top_k.tsv', header=False,
+        sep='\t', index=False)
+
+    # Apply prefilters that remove invalid recommendations (such as for the control group)
+    filtered_recs = prefilter_recommendations(top_k_df, demographics_df, tracks_df,
+                                              control_country=control_country)
+
+    # Apply Choice model to select new recommendations from the top k
+    accepted_df = accept_new_recommendations(choice_model, filtered_recs, demographics_df, tracks_df)
+    # Rename the columns to to the correct names for recbole
+    accepted_df = accepted_df[['user_id', 'item_id']].rename(
+        columns={'user_id': 'user_id:token', 'item_id': 'item_id:token'})
+    accepted_df.to_csv(
+        EXPERIMENTS_FOLDER / dataset_name / 'output' / f'iteration_{iteration}_accepted_songs.tsv',
+        header=True, sep='\t', index=False)
+
+    # Append new interactions to dataset_df
+    df_new = pd.concat([dataset_df.copy(), accepted_df], ignore_index=True)
+    # Sort them again such that all interactions are grouped by user_id
+    df_new = df_new.sort_values(['user_id:token', 'item_id:token']).reset_index(drop=True)
+    df_new.to_csv(
+        EXPERIMENTS_FOLDER / dataset_name / 'datasets' / f'iteration_{iteration + 1}.inter',
+        header=True, sep='\t', index=False)
 
     # Cleanup after finished loop
     cleanup(dataset_name, iteration)
