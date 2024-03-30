@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import argparse
 import shutil
 from pathlib import Path
@@ -60,11 +62,9 @@ def prepare_run(dataset_name: str, iteration: int, clean=False) -> tuple[Path, P
             shutil.rmtree(experiment_folder / 'datasets', ignore_errors=True)
             shutil.rmtree(experiment_folder / 'output', ignore_errors=True)
             shutil.rmtree(experiment_folder / 'log', ignore_errors=True)
-            shutil.rmtree(experiment_folder / 'log_tensorboard', ignore_errors=True)
         (experiment_folder / 'datasets').mkdir(exist_ok=True)
         (experiment_folder / 'output').mkdir(exist_ok=True)
         (experiment_folder / 'log').mkdir(exist_ok=True)
-        (experiment_folder / 'log_tensorboard').mkdir(exist_ok=True)
 
         # Copy the interactions file to datasets/iteration_1.inter
         shutil.copy(input_inter_file, experiment_folder / 'datasets' / f'iteration_{iteration}.inter')
@@ -150,9 +150,9 @@ def do_single_loop(
     print(f'Preparing iteration {iteration} for dataset/experiment {dataset_name}...')
     data_path, demographics_path, tracks_path = prepare_run(dataset_name, iteration, clean)
     dataset_df = pd.read_csv(data_path, sep='\t', header=1, names=['user_id:token', 'item_id:token'])
-    demographics_df = pd.read_csv(demographics_path, sep='\t', header=0,
+    demographics_df = pd.read_csv(demographics_path, sep='\t', header=None,
                                   names=['country', 'age', 'gender', 'registration_time'])
-    tracks_df = pd.read_csv(tracks_path, sep='\t', header=0, names=['title', 'artist', 'country'])
+    tracks_df = pd.read_csv(tracks_path, sep='\t', header=None, names=['title', 'artist', 'country'])
     print(' Done!')
 
     config = Config(model=model, dataset='dataset', config_file_list=[config])
@@ -169,7 +169,7 @@ def do_single_loop(
     # Obtain top k scores and save them for later analysis
     top_k_df = compute_top_k_scores(scores, dataset_name, iteration, k=k)
     top_k_df.to_csv(
-        EXPERIMENTS_FOLDER / dataset_name / 'output' / f'iteration_{iteration}_top_k.tsv', header=False,
+        EXPERIMENTS_FOLDER / dataset_name / 'output' / f'iteration_{iteration}_top_k.tsv', header=True,
         sep='\t', index=False)
 
     # Apply prefilters that remove invalid recommendations (such as for the control group)
@@ -178,7 +178,7 @@ def do_single_loop(
 
     # Apply Choice model to select new recommendations from the top k
     accepted_df = accept_new_recommendations(choice_model, filtered_recs, demographics_df, tracks_df)
-    # Rename the columns to to the correct names for recbole
+    # Rename the columns to the correct names for recbole
     accepted_df = accepted_df[['user_id', 'item_id']].rename(
         columns={'user_id': 'user_id:token', 'item_id': 'item_id:token'})
     accepted_df.to_csv(
