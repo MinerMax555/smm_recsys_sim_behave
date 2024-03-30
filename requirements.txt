@@ -5,3 +5,4 @@ ray[tune]==2.10.0
 recbole==1.2.0
 tqdm==4.66.2
 kmeans_pytorch==0.3
+chardet==5.2.0

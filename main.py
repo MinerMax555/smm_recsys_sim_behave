@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import logging
 import shutil
 from pathlib import Path
 
@@ -83,10 +84,12 @@ def cleanup(dataset_name: str, iteration: int):
     log_folder = EXPERIMENTS_FOLDER / dataset_name / 'log' / f'iteration_{iteration}'
     shutil.rmtree(log_folder, ignore_errors=True)
     log_folder.mkdir(exist_ok=True)
+    logging.shutdown()
     # move any logs that were written into this folder
     for log_file in Path('log').iterdir():
         shutil.move(log_file, log_folder)
-    # move anything in log_tensorbpard to the correct folder
+
+    # move anything in log_tensorboard to the correct folder
     for log_file in Path('log_tensorboard').iterdir():
         shutil.move(log_file, log_folder)
 
