@@ -25,3 +25,4 @@ experiments/*
 !experiments/example/
 experiments/example/*
 !experiments/example/input/
+plots

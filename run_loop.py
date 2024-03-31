@@ -14,5 +14,5 @@ def call_script(n):
 
 
 if __name__ == "__main__":
-    k = 10
+    k = 100
     call_script(k)
