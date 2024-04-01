@@ -2,9 +2,14 @@ import subprocess
 import sys
 
 
-def call_script(n):
-    for i in range(1, n+1):
-        command = [sys.executable, "main.py", "example", str(i), "--clean", "--choice-model", "rank_based"]
+def call_script(n, dataset="example", model="ItemKNN", choice_model="rank_based"):
+    for i in range(1, n + 1):
+        command = [
+            sys.executable, "main.py", dataset, str(i),
+            "--clean",
+            "--model", model,
+            "--choice-model", choice_model
+        ]
         result = subprocess.run(command, check=True)
 
         if result.returncode == 0:
@@ -15,4 +20,7 @@ def call_script(n):
 
 if __name__ == "__main__":
     k = 100
-    call_script(k)
+    dataset = "example"
+    model = "ItemKNN"
+    choice_model = "rank_based"
+    call_script(k, dataset, model, choice_model)
