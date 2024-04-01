@@ -18,7 +18,7 @@ epochs: 200 # We do early stopping, in WS23/24 experiments this was never reache
 train_batch_size: 2048
 eval_batch_size: 32
 # Do Validation after every n epochs
-eval_step: 1
+eval_step: 2
 stopping_step: 5 # Stop if validation metric does not improve for 5 epochs
 train_neg_sample_args:
     distribution: uniform
@@ -34,4 +34,4 @@ metric_decimal_place: 6
 
 # hardware settings
 use_gpu: True # will default to CPU if no GPU is available
-gpu_id: 01
+gpu_id: 0

@@ -19,8 +19,8 @@ def call_script(n, dataset="example", model="ItemKNN", choice_model="rank_based"
 
 
 if __name__ == "__main__":
-    k = 100
-    dataset = "example"
+    k = 50
+    dataset = "100k_sample1_itemknn_rank_based"
     model = "ItemKNN"
     choice_model = "rank_based"
     call_script(k, dataset, model, choice_model)

@@ -29,7 +29,9 @@ def run_recbole_experiment(model: str, dataset: str, iteration: int, config: Con
     logger.info(dataset)
 
     # dataset splitting. Test_data is always empty and thus ignored in our case
+    logger.info('Preparing dataset')
     train_data, valid_data, test_data = data_preparation(config, dataset)
+    logger.info('Done!')
 
     # model loading and initialization
     init_seed(config["seed"] + config["local_rank"], config["reproducibility"])

@@ -161,6 +161,8 @@ def do_single_loop(
     config = Config(model=model, dataset='dataset', config_file_list=[config])
     # Use Recbole to obtain a trained model
     run_recbole_experiment(model=model, dataset=dataset_name, iteration=iteration, config=config)
+    # Attempt to make sure the model is garbage collected and doesn't leak memory
+    del config
 
     # There should only be one model file in saved folder, get its path
     model_path = str(next(Path('saved').iterdir()))
