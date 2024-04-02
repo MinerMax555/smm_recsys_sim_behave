@@ -1,6 +1,7 @@
 import os
 import matplotlib.pyplot as plt
-from data_loader import load_data
+from helper_files.data_loader import load_data
+
 
 def plot_proportions(save_folder, proportions_dict, iteration_range, baselines, choice_model_name):
     """
@@ -25,7 +26,6 @@ def plot_proportions(save_folder, proportions_dict, iteration_range, baselines, 
 
     # Plotting the baseline proportions as horizontal lines
     plt.hlines(y=baselines['global_baseline_us'], xmin=iteration_range[0], xmax=iteration_range[-1], colors='orange', linestyles='--', label='Global Baseline US')
-    plt.hlines(y=baselines['country_specific_baseline_us'], xmin=iteration_range[0], xmax=iteration_range[-1], colors='orange', linestyles='-.', label='Country Specific Baseline US')
 
     plt.ylim(0, 1)
     plt.xlim(iteration_range[0], iteration_range[-1])
@@ -40,10 +40,7 @@ def plot_proportions(save_folder, proportions_dict, iteration_range, baselines, 
     plt.ylabel('Proportion of tracks to US')
     plt.legend(loc='upper right')
 
-    if not os.path.exists(os.path.join(save_folder, 'plots')):
-        os.makedirs(os.path.join(save_folder, 'plots'))
-
-    plt.savefig(os.path.join(save_folder, 'plots/proportions_plot.png'))
+    plt.savefig(os.path.join(save_folder, 'proportions_plot.png'))
 
 
 def plot_jsd(save_folder, iteration_range, jsd_values):
@@ -57,32 +54,35 @@ def plot_jsd(save_folder, iteration_range, jsd_values):
     """
     plt.figure(figsize=(15, 7))
     plt.plot(iteration_range, jsd_values, label='Average JSD', color='green', linestyle='-')
-    plt.fill_between(iteration_range, jsd_values, alpha=0.1, color='green')
 
-    plt.title('Progression of Average JSD between History and Recommendations')
+    plt.title('Progression of JSD between History and Recommendations')
     plt.xlabel('Iteration')
     plt.ylabel('Average JSD')
     plt.grid(True, linestyle='--', linewidth=0.5, color='grey', alpha=0.5)
-    plt.legend(loc='upper right')
+    plt.legend(loc='upper left')
+    plt.xlim(iteration_range[0], iteration_range[-1])
+    plt.ylim(0)
 
-    if not os.path.exists(os.path.join(save_folder, 'plots')):
-        os.makedirs(os.path.join(save_folder, 'plots'))
+    plt.savefig(os.path.join(save_folder, 'jsd_plot.png'))
 
-    plt.savefig(os.path.join(save_folder, 'plots/jsd_plot.png'))
-    plt.show()
 
 def plot_main():
     experiments_folder = 'experiments'
     experiment_name = 'example'
     focus_country = 'US'
 
+    plot_save_folder = os.path.join(experiments_folder, experiment_name, 'plots')
+
+    if not plot_save_folder:
+        os.makedirs(plot_save_folder)
+
     # Load the data
-    proportions, iterations, baselines, choice_model_name = load_data(experiments_folder, experiment_name, focus_country)
+    proportions, iterations, baselines, choice_model_name, jsd_values = load_data(experiments_folder, experiment_name, focus_country)
 
     # Plot the Proportions Plot
-    plot_proportions(os.path.join(experiments_folder, experiment_name), proportions, list(range(1, iterations + 1)), baselines, choice_model_name)
+    plot_proportions(plot_save_folder, proportions, list(range(1, iterations + 1)), baselines, choice_model_name)
     # Plot the JSD Plot
-    plot_jsd(os.path.join(experiments_folder, experiment_name), list(range(1, iterations + 1)), proportions['jsd_values'])
+    plot_jsd(plot_save_folder, list(range(1, iterations + 1)), jsd_values)
 
 
 if __name__ == "__main__":

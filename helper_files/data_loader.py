@@ -1,7 +1,8 @@
 import glob
 import os
 import pandas as pd
-from plot_helper import calculate_global_and_country_specific_baselines, calculate_proportions
+from helper_files.plot_helper import calculate_global_and_country_specific_baselines, calculate_proportions, calculate_iteration_jsd
+
 
 def load_interaction_history(experiment_dir, iteration_number):
     """
@@ -33,23 +34,22 @@ def load_data(experiments_folder, experiment_name, focus_country):
     - focus_country: The country code for the focus group.
 
     Returns:
-    A tuple containing the proportions dictionary, the number of iterations, and the baseline proportions.
+    A tuple containing the proportions dictionary, the number of iterations, the baseline proportions and the jsd values.
     """
 
     proportions = {
         'us_proportion': [],
         'global_baseline_us': [],
-        'country_specific_baseline_us': []
     }
 
     choice_model_name = None
+    jsd_values = []
 
     input_dir_path = os.path.join(experiments_folder, experiment_name, 'input')
 
+    # Placeholder code for reading the choice model name from the log file
     log_dir = os.path.join(os.path.join(experiments_folder, experiment_name), 'log', 'iteration_1', 'ItemKNN')
-
     log_files = glob.glob(os.path.join(log_dir, 'ItemKNN-dataset-*.log'))
-
     if log_files:
         with open(log_files[0], 'r') as f:
             for line in f:
@@ -78,12 +78,14 @@ def load_data(experiments_folder, experiment_name, focus_country):
     # read the number of iterations from the output folder
     iterations = len(os.listdir(os.path.join(experiments_folder, experiment_name, 'datasets'))) - 1
 
-    # The loop to calculate proportions should only work with 'local_proportion' and 'us_proportion'
+    # The loop to calculate proportions
     for iteration in range(1, iterations + 1):
         interaction_history = load_interaction_history(os.path.join(experiments_folder, experiment_name), iteration)
         iteration_proportions = calculate_proportions(interaction_history, tracks_info, baselines, focus_country)
 
         proportions['us_proportion'].append(iteration_proportions['us_proportion'])
 
-    return proportions, iterations, baselines, choice_model_name
+        jsd_values.append(calculate_iteration_jsd(interaction_history, global_interactions, tracks_info))
+
+    return proportions, iterations, baselines, choice_model_name, jsd_values
 

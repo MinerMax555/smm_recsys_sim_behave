@@ -1,7 +1,6 @@
-import glob
-import os
-import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
+from scipy.spatial.distance import jensenshannon
 
 
 def calculate_global_and_country_specific_baselines(global_interactions, demographics_info, tracks_info, focus_country):
@@ -76,3 +75,21 @@ def calculate_proportions(interaction_history, tracks_info, baselines, focus_cou
     proportions.update(baselines)
 
     return proportions
+
+
+def calculate_iteration_jsd(interaction_history, recommendations, tracks_info):
+    history_with_country = interaction_history.merge(tracks_info, on='item_id', how='left')
+    recommendations_with_country = recommendations.merge(tracks_info, on='item_id', how='left')
+
+    unique_countries = tracks_info['country'].unique()
+
+    history_country_counts = history_with_country['country'].value_counts(normalize=True)
+    history_distribution = history_country_counts.reindex(unique_countries, fill_value=0).values
+
+    recommendations_country_counts = recommendations_with_country['country'].value_counts(normalize=True)
+    recommendations_distribution = recommendations_country_counts.reindex(unique_countries, fill_value=0).values
+
+    # Calculate JSD
+    jsd = jensenshannon(history_distribution, recommendations_distribution, base=2)
+
+    return jsd
