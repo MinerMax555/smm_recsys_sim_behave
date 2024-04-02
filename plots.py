@@ -73,7 +73,7 @@ def plot_main():
 
     plot_save_folder = os.path.join(experiments_folder, experiment_name, 'plots')
 
-    if not plot_save_folder:
+    if not os.path.exists(plot_save_folder):
         os.makedirs(plot_save_folder)
 
     # Load the data
