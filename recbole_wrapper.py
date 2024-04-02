@@ -53,7 +53,12 @@ def run_recbole_experiment(model: str, dataset: str, iteration: int, config: Con
     )
     logger.info(set_color("best valid ", "yellow") + f": {best_valid_result}")
 
-    return model, dataset, test_data
+    # cleanup to hopefully avoid memory leaks
+    del model
+    del trainer
+    del train_data
+    del valid_data
+    del test_data
 
 
 def _get_ids(dataset):
