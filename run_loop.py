@@ -1,8 +1,15 @@
 import subprocess
 import sys
 
+import argh
+from argh import arg
 
-def call_script(n, dataset="example", model="ItemKNN", choice_model="rank_based"):
+
+@arg('-n', type=int, help='Number of iterations to run')
+@arg('--dataset', type=str, help='Name of the dataset (a subfolder under experiments/) to be evaluated')
+@arg('--model', type=str, help='Name of RecBole model to be used')
+@arg('--choice-model', type=str, help='Name of choice model to be used.')
+def call_script(n=100, dataset="example", model="ItemKNN", choice_model="rank_based"):
     for i in range(1, n + 1):
         command = [
             sys.executable, "main.py", dataset, str(i),
@@ -19,8 +26,4 @@ def call_script(n, dataset="example", model="ItemKNN", choice_model="rank_based"
 
 
 if __name__ == "__main__":
-    k = 50
-    dataset = "100k_sample1_itemknn_rank_based"
-    model = "ItemKNN"
-    choice_model = "rank_based"
-    call_script(k, dataset, model, choice_model)
+    argh.dispatch_command(call_script)
