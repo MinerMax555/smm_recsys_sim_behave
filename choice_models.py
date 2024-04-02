@@ -47,7 +47,7 @@ def country_centric(recommendations: pd.DataFrame, tracks: pd.DataFrame, country
     for user_id in tqdm(recommendations['user_id'].unique(), desc='Applying choice model'):
         recs = recommendations.loc[recommendations['user_id'] == user_id]
         # Item_id in recs
-        from_country = tracks.iloc[recs['item_id']-1]['country'] == country
+        from_country = tracks.iloc[recs['item_id']]['country'] == country
         # Chance of 1 for songs from the country, chance of non_country_chance for songs not from the country
 
         if invert:
