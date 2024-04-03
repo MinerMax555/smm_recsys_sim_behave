@@ -1,6 +1,8 @@
 import glob
 import os
 import pandas as pd
+from tqdm import tqdm
+
 from helper_files.plot_helper import calculate_global_and_country_specific_baselines, calculate_proportions, calculate_iteration_jsd
 
 
@@ -79,7 +81,7 @@ def load_data(experiments_folder, experiment_name, focus_country):
     iterations = len(os.listdir(os.path.join(experiments_folder, experiment_name, 'datasets'))) - 1
 
     # The loop to calculate proportions
-    for iteration in range(1, iterations + 1):
+    for iteration in tqdm(range(1, iterations + 1), desc='Calculating proportions per iteration'):
         interaction_history = load_interaction_history(os.path.join(experiments_folder, experiment_name), iteration)
         iteration_proportions = calculate_proportions(interaction_history, tracks_info, baselines, focus_country)
 
