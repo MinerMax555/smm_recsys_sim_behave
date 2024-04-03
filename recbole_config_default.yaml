@@ -16,7 +16,7 @@ MAX_ITEM_LIST_LENGTH: 500
 # Training and evaluation config
 epochs: 200 # We do early stopping, in WS23/24 experiments this was never reached
 train_batch_size: 2048
-eval_batch_size: 32
+eval_batch_size: 1048576 # 32
 # Do Validation after every n epochs
 eval_step: 1
 stopping_step: 5 # Stop if validation metric does not improve for 5 epochs

@@ -76,8 +76,12 @@ def plot_main():
     if not os.path.exists(plot_save_folder):
         os.makedirs(plot_save_folder)
 
+    print("Loading data...")
+
     # Load the data
     proportions, iterations, baselines, choice_model_name, jsd_values = load_data(experiments_folder, experiment_name, focus_country)
+
+    print("Loaded data successfully")
 
     # Plot the Proportions Plot
     plot_proportions(plot_save_folder, proportions, list(range(1, iterations + 1)), baselines, choice_model_name)

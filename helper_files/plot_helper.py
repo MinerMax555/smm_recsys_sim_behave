@@ -22,19 +22,7 @@ def calculate_global_and_country_specific_baselines(global_interactions, demogra
     # Calculate global baseline proportions
     global_baseline_us = global_interactions_with_tracks[global_interactions_with_tracks['country'] == focus_country].shape[0] / global_interactions_with_tracks.shape[0]
 
-    de_users_in_demographics = demographics_info[demographics_info['country'] != focus_country]
-    country_specific_interactions = global_interactions[global_interactions['user_id'].isin(de_users_in_demographics['user_id'])]
-    country_specific_interactions_with_tracks = country_specific_interactions.merge(tracks_info, on='item_id')
-
-    # Calculate country-specific baseline proportions
-    country_specific_baseline_us = country_specific_interactions_with_tracks[country_specific_interactions_with_tracks['country'] == focus_country].shape[0] / country_specific_interactions_with_tracks.shape[0]
-
-    print(global_baseline_us, country_specific_baseline_us)
-
-    return {
-        'global_baseline_us': global_baseline_us,
-        'country_specific_baseline_us': country_specific_baseline_us
-    }
+    return {'global_baseline_us': global_baseline_us}
 
 
 def calculate_proportions(interaction_history, tracks_info, baselines, focus_country):
