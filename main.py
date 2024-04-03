@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import json
 import logging
 import shutil
 from pathlib import Path
@@ -157,6 +158,19 @@ def do_single_loop(
                                   names=['country', 'age', 'gender', 'registration_time'])
     tracks_df = pd.read_csv(tracks_path, sep='\t', header=None, names=['title', 'artist', 'country'])
     print(' Done!')
+
+    if iteration == 1:
+        # Write a small json file containing the parameters with which this command was called.
+        # this can be accessed by our plotting functions later
+        call_params = {
+            'dataset_name': dataset_name,
+            'iteration': iteration,
+            'model': model,
+            'choice_model': choice_model,
+            'config': config,
+        }
+        with open(EXPERIMENTS_FOLDER / dataset_name / 'params.json', 'w') as f:
+            json.dump(call_params, f, indent=2)
 
     config = Config(model=model, dataset='dataset', config_file_list=[config])
     # Use Recbole to obtain a trained model
