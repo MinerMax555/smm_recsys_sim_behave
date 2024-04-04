@@ -1,4 +1,6 @@
 import os
+
+import argh
 import matplotlib.pyplot as plt
 from helper_files.data_loader import load_data
 
@@ -66,11 +68,10 @@ def plot_jsd(save_folder, iteration_range, jsd_values, params_dict):
     plt.savefig(os.path.join(save_folder, 'jsd_plot.png'))
 
 
-def plot_main():
-    experiments_folder = 'experiments'
-    experiment_name = 'sample1'
-    focus_country = 'US'
-
+@argh.arg('-ef', '--experiments-folder', type=str, help='Path to the experiments folder')
+@argh.arg('-ex', '--experiment-name', type=str, help='Name of the specific experiment')
+@argh.arg('-fc', '--focus-country', type=str, help='Focus country code')
+def plot_main(experiments_folder="experiment", experiment_name="sample1", focus_country="US"):
     plot_save_folder = os.path.join(experiments_folder, experiment_name, 'plots')
 
     if not os.path.exists(plot_save_folder):
@@ -90,4 +91,4 @@ def plot_main():
 
 
 if __name__ == "__main__":
-    plot_main()
+    argh.dispatch_command(plot_main)
