@@ -1,4 +1,5 @@
 import glob
+import json
 import os
 import pandas as pd
 from tqdm import tqdm
@@ -44,21 +45,19 @@ def load_data(experiments_folder, experiment_name, focus_country):
         'global_baseline_us': [],
     }
 
-    choice_model_name = None
+    params_dict = {}
+
     jsd_values = []
 
     input_dir_path = os.path.join(experiments_folder, experiment_name, 'input')
 
-    # Placeholder code for reading the choice model name from the log file
-    log_dir = os.path.join(os.path.join(experiments_folder, experiment_name), 'log', 'iteration_1', 'ItemKNN')
-    log_files = glob.glob(os.path.join(log_dir, 'ItemKNN-dataset-*.log'))
-    if log_files:
-        with open(log_files[0], 'r') as f:
-            for line in f:
-                if '--choice-model' in line:
-                    pass
-                    choice_model_name = line.split('--choice-model')[1].split("'")[2]
-                    break
+    # get choice model name by reading the params.json
+    with open(os.path.join(experiments_folder, experiment_name, 'params.json')) as f:
+        params = json.load(f)
+        params_dict["model"] = params["model"]
+        params_dict["choice_model"] = params["choice_model"]
+        params_dict["dataset_name"] = params["dataset_name"]
+
 
     dataset_inter_filepath = os.path.join(input_dir_path, 'dataset.inter')
     demographics_filepath = os.path.join(input_dir_path, 'demographics.tsv')
@@ -89,5 +88,5 @@ def load_data(experiments_folder, experiment_name, focus_country):
 
         jsd_values.append(calculate_iteration_jsd(interaction_history, global_interactions, tracks_info))
 
-    return proportions, iterations, baselines, choice_model_name, jsd_values
+    return proportions, iterations, baselines, params_dict, jsd_values
 
