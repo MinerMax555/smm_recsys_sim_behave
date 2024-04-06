@@ -5,28 +5,30 @@ import matplotlib.pyplot as plt
 from helper_files.data_loader import load_data
 
 
-def plot_proportions(save_folder, proportions_dict, iteration_range, baselines, params_dict):
+def plot_proportions(save_folder, proportions_dict, iteration_range, baselines, params_dict, focus_country):
     """
-    Plot the proportions of local and US track recommendations.
+    Plot the proportions of local and focus_country (mostly US) track recommendations.
 
     Parameters:
-    - proportions_dict: A dictionary containing the proportions of local and US tracks.
+    - proportions_dict: A dictionary containing the proportions of local and focus_country (mostly US) tracks.
     - iteration_range: A list of iteration numbers.
     - baselines: A dictionary containing the baseline proportions.
+    - params_dict: A dictionary containing the parameters used in the experiment.
+    - focus_country: The country code for the focus group.
 
     Returns:
-    A plot showing the proportions of local and US track recommendations.
+    A plot showing the proportions of local and focus_country (mostly US) track recommendations.
     """
 
     plt.figure(figsize=(15, 7))
 
-    plt.plot(iteration_range, proportions_dict['us_proportion'], label='US Proportion', color='orange', linestyle='-')
+    plt.plot(iteration_range, proportions_dict['us_proportion'], label=f'{focus_country} Proportion', color='orange', linestyle='-')
 
     # Filling the areas under the curves
     plt.fill_between(iteration_range, proportions_dict['us_proportion'], alpha=0.1, color='orange')
 
     # Plotting the baseline proportions as horizontal lines
-    plt.hlines(y=baselines['global_baseline_us'], xmin=iteration_range[0], xmax=iteration_range[-1], colors='orange', linestyles='--', label='Global Baseline US')
+    plt.hlines(y=baselines['global_baseline_focus_country'], xmin=iteration_range[0], xmax=iteration_range[-1], colors='orange', linestyles='--', label=f'Global Baseline {focus_country}')
 
     plt.ylim(0, 1)
     plt.xlim(iteration_range[0], iteration_range[-1])
@@ -34,11 +36,13 @@ def plot_proportions(save_folder, proportions_dict, iteration_range, baselines, 
 
     if params_dict["choice_model"] == 'rank_based':
         params_dict["choice_model"] = 'Rank Based'
+    elif params_dict["choice_model"] == 'us_centric':
+        params_dict["choice_model"] = 'US Centric'
 
     # Adding labels and title
     plt.title(f'Country Recommendation Distribution ({params_dict["model"]}, {params_dict["choice_model"]}, {params_dict["dataset_name"]})')
     plt.xlabel('Iteration')
-    plt.ylabel('Proportion of tracks to US')
+    plt.ylabel(f'Proportion of tracks to {focus_country}')
     plt.legend(loc='upper right')
 
     plt.savefig(os.path.join(save_folder, 'proportions_plot.png'))
@@ -85,7 +89,7 @@ def plot_main(experiments_folder="experiments", experiment_name="sample1", focus
     print("Loaded data successfully")
 
     # Plot the Proportions Plot
-    plot_proportions(plot_save_folder, proportions, list(range(1, iterations + 1)), baselines, params_dict)
+    plot_proportions(plot_save_folder, proportions, list(range(1, iterations + 1)), baselines, params_dict, focus_country)
     # Plot the JSD Plot
     plot_jsd(plot_save_folder, list(range(1, iterations + 1)), jsd_values, params_dict)
 

@@ -4,7 +4,7 @@ import os
 import pandas as pd
 from tqdm import tqdm
 
-from helper_files.plot_helper import calculate_global_and_country_specific_baselines, calculate_proportions, calculate_iteration_jsd
+from helper_files.metrics import calculate_global_baseline, calculate_proportions, calculate_iteration_jsd
 
 
 def load_interaction_history(experiment_dir, iteration_number):
@@ -42,7 +42,7 @@ def load_data(experiments_folder, experiment_name, focus_country):
 
     proportions = {
         'us_proportion': [],
-        'global_baseline_us': [],
+        'global_baseline_focus_country': [],
     }
 
     params_dict = {}
@@ -60,11 +60,9 @@ def load_data(experiments_folder, experiment_name, focus_country):
 
 
     dataset_inter_filepath = os.path.join(input_dir_path, 'dataset.inter')
-    demographics_filepath = os.path.join(input_dir_path, 'demographics.tsv')
     tracks_filepath = os.path.join(input_dir_path, 'tracks.tsv')
 
     global_interactions = pd.read_csv(dataset_inter_filepath, delimiter='\t', header=None, skiprows=1, names=['user_id', 'item_id'])
-    demographics_info = pd.read_csv(demographics_filepath, delimiter='\t', header=None, names=['country', 'user_id', 'gender', 'timestamp'])
 
     # Load tracks.tsv, reset the index to use as item_id, and assign column names accordingly
     tracks_info = pd.read_csv(tracks_filepath, delimiter='\t', header=None)
@@ -74,7 +72,7 @@ def load_data(experiments_folder, experiment_name, focus_country):
     global_interactions['item_id'] = global_interactions['item_id'].astype(int)
     tracks_info['item_id'] = tracks_info['item_id'].astype(int)
 
-    baselines = calculate_global_and_country_specific_baselines(global_interactions, demographics_info, tracks_info, focus_country)
+    baselines = calculate_global_baseline(global_interactions, tracks_info, focus_country)
 
     # read the number of iterations from the output folder
     iterations = len(os.listdir(os.path.join(experiments_folder, experiment_name, 'datasets'))) - 1
