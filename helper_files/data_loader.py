@@ -58,6 +58,10 @@ def load_data(experiments_folder, experiment_name, focus_country):
         params_dict["choice_model"] = params["choice_model"]
         params_dict["dataset_name"] = params["dataset_name"]
 
+    if params_dict["choice_model"] == 'rank_based':
+        params_dict["choice_model"] = 'Rank Based'
+    elif params_dict["choice_model"] == 'us_centric':
+        params_dict["choice_model"] = 'US Centric'
 
     dataset_inter_filepath = os.path.join(input_dir_path, 'dataset.inter')
     tracks_filepath = os.path.join(input_dir_path, 'tracks.tsv')
@@ -75,16 +79,34 @@ def load_data(experiments_folder, experiment_name, focus_country):
     baselines = calculate_global_baseline(global_interactions, tracks_info, focus_country)
 
     # read the number of iterations from the output folder
-    iterations = len(os.listdir(os.path.join(experiments_folder, experiment_name, 'datasets'))) - 1
+    iterations = len(os.listdir(os.path.join(experiments_folder, experiment_name, 'datasets')))
 
-    # The loop to calculate proportions
-    for iteration in tqdm(range(1, iterations + 1), desc='Calculating proportions per iteration'):
+    # The loop to calculate proportions. We need to start at 2, because the first iteration is only a copy of the input data
+    for iteration in tqdm(range(2, iterations + 1), desc='Calculating proportions per iteration'):
         interaction_history = load_interaction_history(os.path.join(experiments_folder, experiment_name), iteration)
         iteration_proportions = calculate_proportions(interaction_history, tracks_info, baselines, focus_country)
+
+        """
+        differences = pd.merge(interaction_history, global_interactions,
+                               on=['user_id', 'item_id'],
+                               how='outer',
+                               indicator=True).loc[lambda x: x['_merge'] != 'both']
+
+        # Filter out the rows that are unique to interaction_history (or global_interactions if needed)
+        unique_to_interaction_history = differences[differences['_merge'] == 'left_only']
+        unique_to_global_interactions = differences[differences['_merge'] == 'right_only']
+
+        # Displaying the differences
+        print("Unique to interaction_history:", unique_to_interaction_history)
+        print("Unique to global_interactions:", unique_to_global_interactions)
+        """
+        # print(iteration)
 
         proportions['us_proportion'].append(iteration_proportions['us_proportion'])
 
         jsd_values.append(calculate_iteration_jsd(interaction_history, global_interactions, tracks_info))
 
     return proportions, iterations, baselines, params_dict, jsd_values
+
+
 

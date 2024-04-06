@@ -1,5 +1,4 @@
 import os
-
 import argh
 import matplotlib.pyplot as plt
 from helper_files.data_loader import load_data
@@ -30,16 +29,14 @@ def plot_proportions(save_folder, proportions_dict, iteration_range, baselines, 
     # Plotting the baseline proportions as horizontal lines
     plt.hlines(y=baselines['global_baseline_focus_country'], xmin=iteration_range[0], xmax=iteration_range[-1], colors='orange', linestyles='--', label=f'Global Baseline {focus_country}')
 
-    plt.ylim(0, 1)
+    # Ensure the first tick is displayed on the x-axis
+    if iteration_range[0] not in plt.xticks()[0]:
+        plt.xticks([iteration_range[0]] + list(plt.xticks()[0]))
+
     plt.xlim(iteration_range[0], iteration_range[-1])
+    plt.ylim(0, 1)
     plt.grid(True, linestyle='--', linewidth=0.5, color='grey', alpha=0.5)
 
-    if params_dict["choice_model"] == 'rank_based':
-        params_dict["choice_model"] = 'Rank Based'
-    elif params_dict["choice_model"] == 'us_centric':
-        params_dict["choice_model"] = 'US Centric'
-
-    # Adding labels and title
     plt.title(f'Country Recommendation Distribution ({params_dict["model"]}, {params_dict["choice_model"]}, {params_dict["dataset_name"]})')
     plt.xlabel('Iteration')
     plt.ylabel(f'Proportion of tracks to {focus_country}')
@@ -63,6 +60,12 @@ def plot_jsd(save_folder, iteration_range, jsd_values, params_dict):
 
     plt.title(f'Progression of JSD between History and Recommendations ({params_dict["model"]}, {params_dict["choice_model"]}, {params_dict["dataset_name"]})')
     plt.xlabel('Iteration')
+
+    # Ensure the first tick is displayed on the x-axis
+    if iteration_range[0] not in plt.xticks()[0]:
+        plt.xticks([iteration_range[0]] + list(plt.xticks()[0]))
+
+    # Adding labels and title
     plt.ylabel('Average JSD')
     plt.grid(True, linestyle='--', linewidth=0.5, color='grey', alpha=0.5)
     plt.legend(loc='upper left')
@@ -89,9 +92,9 @@ def plot_main(experiments_folder="experiments", experiment_name="sample1", focus
     print("Loaded data successfully")
 
     # Plot the Proportions Plot
-    plot_proportions(plot_save_folder, proportions, list(range(1, iterations + 1)), baselines, params_dict, focus_country)
+    plot_proportions(plot_save_folder, proportions, list(range(1, iterations)), baselines, params_dict, focus_country)
     # Plot the JSD Plot
-    plot_jsd(plot_save_folder, list(range(1, iterations + 1)), jsd_values, params_dict)
+    plot_jsd(plot_save_folder, list(range(1, iterations)), jsd_values, params_dict)
 
 
 if __name__ == "__main__":

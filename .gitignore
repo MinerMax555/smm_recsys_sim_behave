@@ -25,4 +25,7 @@ experiments/*
 !experiments/example/
 experiments/example/*
 !experiments/example/input/
+
+# other files
 plots
+ISMIR_samples.zip

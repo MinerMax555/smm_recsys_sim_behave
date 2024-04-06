@@ -64,7 +64,7 @@ def calculate_iteration_jsd(interaction_history, recommendations, tracks_info):
 
     Parameters:
     - interaction_history: A pandas DataFrame containing the interaction history.
-    - recommendations: A pandas DataFrame containing the recommendations.
+    - recommendations: A pandas DataFrame containing the historical recommendations.
     - tracks_info: A pandas DataFrame containing tracks and their country of origin.
 
     Returns:
