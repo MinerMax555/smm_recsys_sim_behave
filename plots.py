@@ -71,7 +71,7 @@ def plot_jsd(save_folder, iteration_range, jsd_values, params_dict):
 @argh.arg('-ef', '--experiments-folder', type=str, help='Path to the experiments folder')
 @argh.arg('-ex', '--experiment-name', type=str, help='Name of the specific experiment')
 @argh.arg('-fc', '--focus-country', type=str, help='Focus country code')
-def plot_main(experiments_folder="experiment", experiment_name="sample1", focus_country="US"):
+def plot_main(experiments_folder="experiments", experiment_name="sample1", focus_country="US"):
     plot_save_folder = os.path.join(experiments_folder, experiment_name, 'plots')
 
     if not os.path.exists(plot_save_folder):
