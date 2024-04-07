@@ -64,12 +64,14 @@ def load_data(experiments_folder, experiment_name, focus_country):
         print('Calculating JSD values and recommendation proportions. This may take a while...')
         for iteration in tqdm(range(1, iterations), desc='Processing Iterations'):
             top_k_data = load_top_k_data(os.path.join(experiments_folder, experiment_name), iteration)
-            iteration_proportions = calculate_proportions(top_k_data, tracks_info, baselines, focus_country)
-            proportions['us_proportion'].append(iteration_proportions['us_proportion'])
-
+            proportion_rows = calculate_proportions(top_k_data, tracks_info, demographics, params_dict["model"], params_dict["choice_model"], iteration)
             interaction_with_country = join_interaction_with_country(top_k_data, demographics, tracks_info)
             jsd_rows = calculate_iteration_jsd(interaction_with_country, tracks_info, global_interactions, params_dict["model"], params_dict["choice_model"], iteration)
-            [jsd_row.update({'us_proportion': iteration_proportions['us_proportion']}) for jsd_row in jsd_rows]
+
+            # Combine JSD and proportion data
+            for jsd_row, proportion_row in zip(jsd_rows, proportion_rows):
+                jsd_row.update({'us_proportion': proportion_row['us_proportion']})
+
             jsd_data.extend(jsd_rows)
 
         # Save JSD values to CSV

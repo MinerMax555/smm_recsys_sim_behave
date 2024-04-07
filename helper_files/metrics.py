@@ -25,38 +25,75 @@ def calculate_global_baseline(global_interactions, tracks_info, focus_country):
     return {'global_baseline_focus_country': global_baseline_focus_country}
 
 
-def calculate_proportions(interaction_history, tracks_info, baselines, focus_country):
+def calculate_us_proportion(interaction_data, tracks_info):
     """
-    Calculate the proportions of focus_country (mostly US) track recommendations.
+    Helper function to calculate the proportion of US tracks in the interaction data.
 
     Parameters:
-    - interaction_history: A pandas DataFrame containing the interaction history.
-    - tracks_info: A pandas DataFrame containing tracks and their country of origin.
-    - baselines: A dictionary containing the calculated baseline proportions.
-    - focus_country: The country code for the focus group.
+    - interaction_data: DataFrame containing interactions data.
+    - tracks_info: DataFrame containing tracks and their country of origin.
 
     Returns:
-    A dictionary containing the calculated proportions.
+    The proportion of US tracks in the interaction data.
     """
+    us_tracks = tracks_info[tracks_info['country'] == 'US']
+    merged_data = interaction_data.merge(us_tracks, on='item_id', how='inner')
+    us_proportion = len(merged_data) / len(interaction_data) if len(interaction_data) > 0 else 0
+    return us_proportion
 
-    interaction_history['item_id'] = pd.to_numeric(interaction_history['item_id'], errors='coerce')
 
-    # Join the interaction history with the track country information
-    interaction_with_country = interaction_history.merge(tracks_info, left_on='item_id', right_on='item_id', how='left')
+def calculate_proportions(top_k_data, tracks_info, demographics, model, choice_model, iteration):
+    """
+    Calculate the proportions of US track recommendations for each country and globally.
 
-    # Calculate the total number of recommendations
-    total_recommendations = len(interaction_with_country)
+    Parameters:
+    - top_k_data: DataFrame containing the top K interactions for a specific iteration.
+    - tracks_info: DataFrame containing tracks and their country of origin.
+    - demographics: DataFrame containing user demographics, indexed by user_id.
+    - model: The name of the model used in the experiment.
+    - choice_model: The name of the choice model used in the experiment.
+    - iteration: The iteration number.
 
-    # Calculate the proportion of focus_country (mostly US) tracks
-    us_count = interaction_with_country[interaction_with_country['country'] == focus_country].shape[0]
-    us_proportion = us_count / total_recommendations if total_recommendations else 0
+    Returns:
+    List of dictionaries with US proportion values for each country and globally.
+    """
+    # This holds the combined results
+    proportion_results = []
 
-    # Include the baseline proportions
-    proportions = {'us_proportion': us_proportion}
+    # Calculate the proportion for each country and globally
+    global_us_tracks = tracks_info[tracks_info['country'] == 'US']
+    global_us_interactions = top_k_data.merge(global_us_tracks, on='item_id', how='inner')
 
-    proportions.update(baselines)
+    global_proportion = len(global_us_interactions) / len(top_k_data) if len(top_k_data) > 0 else 0
+    proportion_results.append({
+        "model": model,
+        "choice_model": choice_model,
+        "iteration": iteration,
+        "country": "global",
+        "us_proportion": global_proportion
+    })
 
-    return proportions
+    # Calculate the US proportion per country
+    for country in demographics['country'].unique():
+        # Filter for users from the specific country
+        country_users = demographics[demographics['country'] == country].index
+        country_top_k_data = top_k_data[top_k_data['user_id'].isin(country_users)]
+
+        # Merge with US tracks
+        country_us_interactions = country_top_k_data.merge(global_us_tracks, on='item_id', how='inner')
+
+        # Calculate proportion
+        country_proportion = len(country_us_interactions) / len(country_top_k_data) if len(country_top_k_data) > 0 else 0
+        proportion_results.append({
+            "model": model,
+            "choice_model": choice_model,
+            "iteration": iteration,
+            "country": country,
+            "us_proportion": country_proportion
+        })
+
+    return proportion_results
+
 
 def join_interaction_with_country(interaction_history, demographics, tracks_info):
     """
@@ -83,32 +120,21 @@ def join_interaction_with_country(interaction_history, demographics, tracks_info
 
 def prepare_jsd_distributions(top_k_data, global_interactions, tracks_info, country=None):
     """
-    Prepares distributions for JSD calculation, for a specific country or globally.
+    Prepares distributions for JSD calculation, for a specific country or globally, based on track country distribution.
 
-    Parameters:
-    - top_k_data: DataFrame containing the top K interactions for a specific iteration.
-    - global_interactions: DataFrame containing the global interactions.
-    - tracks_info: DataFrame containing tracks and their country of origin.
-    - country: The specific country code to filter by, or None for global distributions.
-
-    Returns:
-    Two arrays representing the distributions of history and recommendations for JSD calculation.
+    Parameters are the same as described previously.
     """
-    unique_items = tracks_info['item_id'].unique()
+    # Calculate the distribution for global interactions (history) based on countries
+    global_distribution = calculate_country_distribution(global_interactions, tracks_info)
 
-    # Calculate the distribution for global interactions (history)
-    global_distribution = calculate_distribution(global_interactions, unique_items)
+    # Filter interactions if a specific country is given (not needed if we're analyzing by country of tracks)
+    top_k_filtered = top_k_data
 
-    # If a country filter is applied, calculate the distribution for the country-specific interactions
-    if country:
-        top_k_filtered = top_k_data[top_k_data['country'] == country]
-    else:
-        top_k_filtered = top_k_data
-
-    # Calculate the distribution for top K interactions (recommendations)
-    top_k_distribution = calculate_distribution(top_k_filtered, unique_items)
+    # Calculate the distribution for top K interactions (recommendations) based on countries
+    top_k_distribution = calculate_country_distribution(top_k_filtered, tracks_info)
 
     return global_distribution, top_k_distribution
+
 
 
 def calculate_iteration_jsd(interaction_with_country, tracks_info, global_interactions, model, choice_model, iteration):
@@ -158,18 +184,31 @@ def calculate_iteration_jsd(interaction_with_country, tracks_info, global_intera
     return jsd_rows
 
 
-def calculate_distribution(df, unique_items):
+def calculate_country_distribution(df, tracks_info):
     """
-    Calculates the distribution of items over the unique items.
+    Calculates the distribution of tracks over countries.
 
     Parameters:
     - df: DataFrame with 'item_id'.
-    - unique_items: Numpy array of unique item IDs.
+    - tracks_info: DataFrame with track information including 'country'.
 
     Returns:
-    Numpy array representing the distribution of items.
+    Numpy array representing the distribution of tracks across countries.
     """
-    item_counts = df['item_id'].value_counts(normalize=True)
-    distribution = item_counts.reindex(unique_items, fill_value=0).values
+    # Ensure that 'tracks_info' only contains the necessary columns to avoid key collisions on merge
+    tracks_info_simplified = tracks_info[['item_id', 'country']]
+
+    # Merge to get country information for each item
+    merged_df = df.merge(tracks_info_simplified, on='item_id', how='left')
+    country_column = 'country_y' if 'country_y' in merged_df.columns else 'country'
+
+    # Calculate proportion of tracks per country using the correct country column
+    country_counts = merged_df[country_column].value_counts(normalize=True)
+
+    # Ensure distribution includes all countries present in tracks_info, filling missing values with 0
+    all_countries = tracks_info['country'].unique()
+    distribution = country_counts.reindex(all_countries, fill_value=0).values
 
     return distribution
+
+
