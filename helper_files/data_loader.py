@@ -1,112 +1,86 @@
-import glob
 import json
 import os
+
+import numpy as np
 import pandas as pd
+from scipy.spatial.distance import jensenshannon
 from tqdm import tqdm
 
-from helper_files.metrics import calculate_global_baseline, calculate_proportions, calculate_iteration_jsd
+from helper_files.metrics import calculate_global_baseline, calculate_proportions, join_interaction_with_country, calculate_iteration_jsd
 
 
-def load_interaction_history(experiment_dir, iteration_number):
+def load_top_k_data(experiment_dir, iteration_number):
     """
-    Loads the interaction history for a given iteration.
+    Load the top-k recommendations for a given iteration.
 
     Parameters:
-    - experiment_dir: The directory where the experiment data is stored.
-    - iteration_number: The iteration number to load the interaction history for.
+    - experiment_dir: The directory containing the experiment data.
+    - iteration_number: The iteration number to load.
 
     Returns:
-    A pandas DataFrame containing the interaction history.
+    DataFrame containing the top-k recommendations for the given iteration.
     """
-    # Construct the file path for the interaction history file
-    interaction_file = f'iteration_{iteration_number}.inter'
-    interaction_path = os.path.join(experiment_dir, 'datasets', interaction_file)
+    top_k_file = f'output/iteration_{iteration_number}_top_k.tsv'
+    top_k_path = os.path.join(experiment_dir, top_k_file)
 
-    interaction_history = pd.read_csv(interaction_path, delimiter='\t', header=None, skiprows=1, names=['user_id', 'item_id'])
-
-    return interaction_history
+    top_k_data = pd.read_csv(top_k_path, delimiter='\t', usecols=['user_id', 'item_id'])
+    return top_k_data
 
 
 def load_data(experiments_folder, experiment_name, focus_country):
-    """
-    Load the data for the specified experiment.
-
-    Parameters:
-    - experiments_folder: The folder containing the experiment data.
-    - experiment_name: The name of the experiment to load.
-    - focus_country: The country code for the focus group.
-
-    Returns:
-    A tuple containing the proportions dictionary, the number of iterations, the baseline proportions and the jsd values.
-    """
-
-    proportions = {
-        'us_proportion': [],
-        'global_baseline_focus_country': [],
-    }
-
-    params_dict = {}
-
-    jsd_values = []
-
     input_dir_path = os.path.join(experiments_folder, experiment_name, 'input')
-
-    # get choice model name by reading the params.json
-    with open(os.path.join(experiments_folder, experiment_name, 'params.json')) as f:
-        params = json.load(f)
-        params_dict["model"] = params["model"]
-        params_dict["choice_model"] = params["choice_model"]
-        params_dict["dataset_name"] = params["dataset_name"]
-
-    if params_dict["choice_model"] == 'rank_based':
-        params_dict["choice_model"] = 'Rank Based'
-    elif params_dict["choice_model"] == 'us_centric':
-        params_dict["choice_model"] = 'US Centric'
-
+    params_path = os.path.join(experiments_folder, experiment_name, 'params.json')
+    demographics_file = os.path.join(input_dir_path, 'demographics.tsv')
     dataset_inter_filepath = os.path.join(input_dir_path, 'dataset.inter')
     tracks_filepath = os.path.join(input_dir_path, 'tracks.tsv')
 
+    proportions = {'us_proportion': [],
+        'global_baseline_focus_country': []}
+
+    # Load parameters
+    with open(params_path) as f:
+        params_dict = json.load(f)
+
+    # Load global interactions and tracks info
     global_interactions = pd.read_csv(dataset_inter_filepath, delimiter='\t', header=None, skiprows=1, names=['user_id', 'item_id'])
-
-    # Load tracks.tsv, reset the index to use as item_id, and assign column names accordingly
-    tracks_info = pd.read_csv(tracks_filepath, delimiter='\t', header=None)
-    tracks_info.reset_index(inplace=True)
+    tracks_info = pd.read_csv(tracks_filepath, delimiter='\t', header=None).reset_index()
     tracks_info.columns = ['item_id', 'artist', 'title', 'country']
-
-    global_interactions['item_id'] = global_interactions['item_id'].astype(int)
-    tracks_info['item_id'] = tracks_info['item_id'].astype(int)
 
     baselines = calculate_global_baseline(global_interactions, tracks_info, focus_country)
 
-    # read the number of iterations from the output folder
+    # Load demographics data
+    demographics = pd.read_csv(demographics_file, delimiter='\t', header=None, names=['country', 'age', 'gender', 'signup_date'])
+
+    # Calculate the number of iterations
     iterations = len(os.listdir(os.path.join(experiments_folder, experiment_name, 'datasets')))
 
-    # The loop to calculate proportions. We need to start at 2, because the first iteration is only a copy of the input data
-    for iteration in tqdm(range(2, iterations + 1), desc='Calculating proportions per iteration'):
-        interaction_history = load_interaction_history(os.path.join(experiments_folder, experiment_name), iteration)
-        iteration_proportions = calculate_proportions(interaction_history, tracks_info, baselines, focus_country)
+    jsd_data = []
 
-        """
-        differences = pd.merge(interaction_history, global_interactions,
-                               on=['user_id', 'item_id'],
-                               how='outer',
-                               indicator=True).loc[lambda x: x['_merge'] != 'both']
+    # if csv does exist, load it, else calculate it and save the data.
+    if os.path.exists(os.path.join(experiments_folder, experiment_name, 'metrics.csv')):
+        print('Loading JSD values from CSV')
+        df = pd.read_csv(os.path.join(experiments_folder, experiment_name, 'metrics.csv'))
+    else:
+        print('Calculating JSD values and recommendation proportions. This may take a while...')
+        for iteration in tqdm(range(1, iterations), desc='Processing Iterations'):
+            top_k_data = load_top_k_data(os.path.join(experiments_folder, experiment_name), iteration)
+            iteration_proportions = calculate_proportions(top_k_data, tracks_info, baselines, focus_country)
+            proportions['us_proportion'].append(iteration_proportions['us_proportion'])
 
-        # Filter out the rows that are unique to interaction_history (or global_interactions if needed)
-        unique_to_interaction_history = differences[differences['_merge'] == 'left_only']
-        unique_to_global_interactions = differences[differences['_merge'] == 'right_only']
+            interaction_with_country = join_interaction_with_country(top_k_data, demographics, tracks_info)
+            jsd_rows = calculate_iteration_jsd(interaction_with_country, tracks_info, global_interactions, params_dict["model"], params_dict["choice_model"], iteration)
+            [jsd_row.update({'us_proportion': iteration_proportions['us_proportion']}) for jsd_row in jsd_rows]
+            jsd_data.extend(jsd_rows)
 
-        # Displaying the differences
-        print("Unique to interaction_history:", unique_to_interaction_history)
-        print("Unique to global_interactions:", unique_to_global_interactions)
-        """
-        # print(iteration)
+        # Save JSD values to CSV
+        csv_save_path = os.path.join(experiments_folder, experiment_name, 'metrics.csv')
+        pd.DataFrame(jsd_data).to_csv(csv_save_path, index=False)
 
-        proportions['us_proportion'].append(iteration_proportions['us_proportion'])
+        df = pd.DataFrame(jsd_data)
 
-        jsd_values.append(calculate_iteration_jsd(interaction_history, global_interactions, tracks_info))
+        print("Loaded data successfully")
 
-    return proportions, iterations, baselines, params_dict, jsd_values
+    global_jsd_df = df[df['country'] == focus_country]['jsd'].tolist()
+    proportion_df = df[df['country'] == 'global']['us_proportion'].tolist()  # We could pick any country here, as they are all the same
 
-
-
+    return proportion_df, iterations, baselines, params_dict, global_jsd_df

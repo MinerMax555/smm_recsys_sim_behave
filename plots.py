@@ -21,10 +21,10 @@ def plot_proportions(save_folder, proportions_dict, iteration_range, baselines, 
 
     plt.figure(figsize=(15, 7))
 
-    plt.plot(iteration_range, proportions_dict['us_proportion'], label=f'{focus_country} Proportion', color='orange', linestyle='-')
+    plt.plot(iteration_range, proportions_dict, label=f'{focus_country} Proportion', color='orange', linestyle='-')
 
     # Filling the areas under the curves
-    plt.fill_between(iteration_range, proportions_dict['us_proportion'], alpha=0.1, color='orange')
+    plt.fill_between(iteration_range, proportions_dict, alpha=0.1, color='orange')
 
     # Plotting the baseline proportions as horizontal lines
     plt.hlines(y=baselines['global_baseline_focus_country'], xmin=iteration_range[0], xmax=iteration_range[-1], colors='orange', linestyles='--', label=f'Global Baseline {focus_country}')
@@ -45,7 +45,7 @@ def plot_proportions(save_folder, proportions_dict, iteration_range, baselines, 
     plt.savefig(os.path.join(save_folder, 'proportions_plot.png'))
 
 
-def plot_jsd(save_folder, iteration_range, jsd_values, params_dict):
+def plot_jsd(save_folder, iteration_range, jsd_values, params_dict, focus_country):
     """
     Plot the progression of average JSD between history and recommendations at each iteration.
 
@@ -54,11 +54,12 @@ def plot_jsd(save_folder, iteration_range, jsd_values, params_dict):
     - jsd_values: A list of JSD values for each iteration.
     - save_folder: Directory where the plot will be saved.
     - params_dict: A dictionary containing the parameters used in the experiment.
+    - focus_country: The country code for the focus group.
     """
     plt.figure(figsize=(15, 7))
     plt.plot(iteration_range, jsd_values, label='Average JSD', color='green', linestyle='-')
 
-    plt.title(f'Progression of JSD between History and Recommendations ({params_dict["model"]}, {params_dict["choice_model"]}, {params_dict["dataset_name"]})')
+    plt.title(f'JSD between History and Recommendations of {focus_country} ({params_dict["model"]}, {params_dict["choice_model"]}, {params_dict["dataset_name"]})')
     plt.xlabel('Iteration')
 
     # Ensure the first tick is displayed on the x-axis
@@ -70,7 +71,6 @@ def plot_jsd(save_folder, iteration_range, jsd_values, params_dict):
     plt.grid(True, linestyle='--', linewidth=0.5, color='grey', alpha=0.5)
     plt.legend(loc='upper left')
     plt.xlim(iteration_range[0], iteration_range[-1])
-    plt.ylim(0)
 
     plt.savefig(os.path.join(save_folder, 'jsd_plot.png'))
 
@@ -89,12 +89,17 @@ def plot_main(experiments_folder="experiments", experiment_name="sample1", focus
     # Load the data
     proportions, iterations, baselines, params_dict, jsd_values = load_data(experiments_folder, experiment_name, focus_country)
 
-    print("Loaded data successfully")
+    if params_dict["choice_model"] == 'rank_based':
+        params_dict["choice_model"] = 'Rank Based'
+    elif params_dict["choice_model"] == 'us_centric':
+        params_dict["choice_model"] = 'US Centric'
+
+    iterations = list(range(1, iterations))
 
     # Plot the Proportions Plot
-    plot_proportions(plot_save_folder, proportions, list(range(1, iterations)), baselines, params_dict, focus_country)
+    plot_proportions(plot_save_folder, proportions, iterations, baselines, params_dict, focus_country)
     # Plot the JSD Plot
-    plot_jsd(plot_save_folder, list(range(1, iterations)), jsd_values, params_dict)
+    plot_jsd(plot_save_folder, iterations, jsd_values, params_dict, focus_country)
 
 
 if __name__ == "__main__":
