@@ -46,10 +46,11 @@ def load_data(experiments_folder, experiment_name, focus_country):
     tracks_info = pd.read_csv(tracks_filepath, delimiter='\t', header=None).reset_index()
     tracks_info.columns = ['item_id', 'artist', 'title', 'country']
 
-    baselines = calculate_global_baseline(global_interactions, tracks_info, focus_country)
-
     # Load demographics data
     demographics = pd.read_csv(demographics_file, delimiter='\t', header=None, names=['country', 'age', 'gender', 'signup_date'])
+
+    baselines = calculate_global_baseline(global_interactions, tracks_info, focus_country)
+    original_interactions_merged = join_interaction_with_country(global_interactions, demographics, tracks_info)
 
     # Calculate the number of iterations
     iterations = len(os.listdir(os.path.join(experiments_folder, experiment_name, 'datasets')))
@@ -65,8 +66,9 @@ def load_data(experiments_folder, experiment_name, focus_country):
         for iteration in tqdm(range(1, iterations), desc='Processing Iterations'):
             top_k_data = load_top_k_data(os.path.join(experiments_folder, experiment_name), iteration)
             proportion_rows = calculate_proportions(top_k_data, tracks_info, demographics, params_dict["model"], params_dict["choice_model"], iteration)
-            interaction_with_country = join_interaction_with_country(top_k_data, demographics, tracks_info)
-            jsd_rows = calculate_iteration_jsd(interaction_with_country, tracks_info, global_interactions, params_dict["model"], params_dict["choice_model"], iteration)
+
+            recs_merged = join_interaction_with_country(top_k_data, demographics, tracks_info)
+            jsd_rows = calculate_iteration_jsd(recs_merged, tracks_info, original_interactions_merged, params_dict["model"], params_dict["choice_model"], iteration)
 
             # Combine JSD and proportion data
             for jsd_row, proportion_row in zip(jsd_rows, proportion_rows):

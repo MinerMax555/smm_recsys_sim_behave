@@ -1,6 +1,9 @@
+from time import time
+
 import numpy as np
 import pandas as pd
 from scipy.spatial.distance import jensenshannon
+from tqdm import tqdm
 
 
 def calculate_global_baseline(global_interactions, tracks_info, focus_country):
@@ -8,7 +11,7 @@ def calculate_global_baseline(global_interactions, tracks_info, focus_country):
     Calculate the global and country-specific baseline proportions.
 
     Parameters:
-    - global_interactions: A pandas DataFrame containing global interaction history.
+    - interactions_merged: A pandas DataFrame containing global interaction history.
     - tracks_info: A pandas DataFrame containing tracks and their country of origin, with a new 'item_id' column.
     - focus_country: The country code for the focus group.
 
@@ -47,7 +50,7 @@ def calculate_proportions(top_k_data, tracks_info, demographics, model, choice_m
     Calculate the proportions of US track recommendations for each country and globally.
 
     Parameters:
-    - top_k_data: DataFrame containing the top K interactions for a specific iteration.
+    - recs_merged: DataFrame containing the top K interactions for a specific iteration.
     - tracks_info: DataFrame containing tracks and their country of origin.
     - demographics: DataFrame containing user demographics, indexed by user_id.
     - model: The name of the model used in the experiment.
@@ -113,38 +116,38 @@ def join_interaction_with_country(interaction_history, demographics, tracks_info
     tracks_info['item_id'] = tracks_info['item_id'].astype(int)
 
     # Merge to get country for each interaction
-    interaction_with_country = interaction_history.merge(demographics, left_on='user_id', right_index=True, how='left')
+    merged_df = interaction_history.merge(demographics, left_on='user_id', right_index=True, how='left')
+    merged_df = merged_df.rename(columns={'country': 'user_country'})
 
-    return interaction_with_country
+    merged_df = merged_df.merge(tracks_info, on='item_id', how='left')
+    merged_df = merged_df.rename(columns={'country': 'artist_country'})
+    return merged_df
 
 
-def prepare_jsd_distributions(top_k_data, global_interactions, tracks_info, country=None):
+def prepare_jsd_distributions(recs_merged, interactions_merged, tracks_info):
     """
     Prepares distributions for JSD calculation, for a specific country or globally, based on track country distribution.
 
     Parameters are the same as described previously.
     """
     # Calculate the distribution for global interactions (history) based on countries
-    global_distribution = calculate_country_distribution(global_interactions, tracks_info)
-
-    # Filter interactions if a specific country is given (not needed if we're analyzing by country of tracks)
-    top_k_filtered = top_k_data
+    global_distribution = calculate_country_distribution(interactions_merged, tracks_info)
 
     # Calculate the distribution for top K interactions (recommendations) based on countries
-    top_k_distribution = calculate_country_distribution(top_k_filtered, tracks_info)
+    top_k_distribution = calculate_country_distribution(recs_merged, tracks_info)
 
     return global_distribution, top_k_distribution
 
 
 
-def calculate_iteration_jsd(interaction_with_country, tracks_info, global_interactions, model, choice_model, iteration):
+def calculate_iteration_jsd(recs_merged, tracks_info, interactions_merged, model, choice_model, iteration):
     """
     Calculate the JSD for each country and globally for a given iteration, using interaction history.
 
     Parameters:
-    - interaction_with_country: DataFrame containing the interaction history with associated country information.
+    - recs_merged: DataFrame containing the recommendations merged with user demographics and track information.
     - tracks_info: DataFrame with tracks information.
-    - global_interactions: DataFrame containing global interactions.
+    - interactions_merged: DataFrame containing the original interaction history merged with user demographics and track information.
     - model: The name of the model used in the experiment.
     - choice_model: The name of the choice model used in the experiment.
     - iteration: The iteration number.
@@ -152,11 +155,11 @@ def calculate_iteration_jsd(interaction_with_country, tracks_info, global_intera
     Returns:
     Dictionary with JSD values for each country and a global JSD value.
     """
-    unique_countries = interaction_with_country['country'].unique()
+    unique_user_countries = recs_merged['user_country'].unique()
     jsd_rows = []
 
     # Calculate global JSD
-    global_history_distribution, global_recommendations_distribution = prepare_jsd_distributions(interaction_with_country, global_interactions, tracks_info)
+    global_history_distribution, global_recommendations_distribution = prepare_jsd_distributions(recs_merged, interactions_merged, tracks_info)
     jsd_rows.append({
         "model": model,
         "choice_model": choice_model,
@@ -166,12 +169,13 @@ def calculate_iteration_jsd(interaction_with_country, tracks_info, global_intera
     })
 
     # Calculate JSD for each country
-    for country in unique_countries:
+    for country in unique_user_countries:
         # Filter interactions for the current country
-        country_interaction_history = interaction_with_country[interaction_with_country['country'] == country]
+        country_recs = recs_merged.query(f'user_country == "{country}"')
+        country_interactions = interactions_merged.query(f'user_country == "{country}"')
 
         # Prepare distributions for JSD calculation
-        history_distribution, recommendations_distribution = prepare_jsd_distributions(country_interaction_history, global_interactions, tracks_info, country=country)
+        history_distribution, recommendations_distribution = prepare_jsd_distributions(country_recs, country_interactions, tracks_info)
 
         jsd_rows.append({
             "model": model,
@@ -196,14 +200,14 @@ def calculate_country_distribution(df, tracks_info):
     Numpy array representing the distribution of tracks across countries.
     """
     # Ensure that 'tracks_info' only contains the necessary columns to avoid key collisions on merge
-    tracks_info_simplified = tracks_info[['item_id', 'country']]
+    # tracks_info_simplified = tracks_info[['item_id', 'country']]
 
     # Merge to get country information for each item
-    merged_df = df.merge(tracks_info_simplified, on='item_id', how='left')
-    country_column = 'country_y' if 'country_y' in merged_df.columns else 'country'
+    #merged_df = df.merge(tracks_info_simplified, on='item_id', how='left')
+    #country_column = 'country_y' if 'country_y' in merged_df.columns else 'country'
 
     # Calculate proportion of tracks per country using the correct country column
-    country_counts = merged_df[country_column].value_counts(normalize=True)
+    country_counts = df['artist_country'].value_counts(normalize=True)
 
     # Ensure distribution includes all countries present in tracks_info, filling missing values with 0
     all_countries = tracks_info['country'].unique()
