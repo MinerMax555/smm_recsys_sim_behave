@@ -1,12 +1,11 @@
 import json
 import os
 
-import numpy as np
 import pandas as pd
-from scipy.spatial.distance import jensenshannon
 from tqdm import tqdm
 
-from helper_files.metrics import calculate_global_baseline, calculate_proportions, join_interaction_with_country, calculate_iteration_jsd
+from helper_files.metrics import calculate_global_baseline, calculate_proportions, join_interaction_with_country, \
+    calculate_iteration_jsd_per_user
 
 
 def load_top_k_data(experiment_dir, iteration_number):
@@ -55,36 +54,30 @@ def load_data(experiments_folder, experiment_name, focus_country):
     # Calculate the number of iterations
     iterations = len(os.listdir(os.path.join(experiments_folder, experiment_name, 'datasets')))
 
-    jsd_data = []
+    jsd_data = pd.DataFrame(columns=['model', 'choice_model', 'iteration', 'country', 'user_count', 'jsd', 'us_proportion'])
 
     # if csv does exist, load it, else calculate it and save the data.
     if os.path.exists(os.path.join(experiments_folder, experiment_name, 'metrics.csv')):
         print('Loading JSD values from CSV')
-        df = pd.read_csv(os.path.join(experiments_folder, experiment_name, 'metrics.csv'))
+        jsd_data = pd.read_csv(os.path.join(experiments_folder, experiment_name, 'metrics.csv'))
     else:
         print('Calculating JSD values and recommendation proportions. This may take a while...')
         for iteration in tqdm(range(1, iterations), desc='Processing Iterations'):
             top_k_data = load_top_k_data(os.path.join(experiments_folder, experiment_name), iteration)
-            proportion_rows = calculate_proportions(top_k_data, tracks_info, demographics, params_dict["model"], params_dict["choice_model"], iteration)
+            proportion_df = calculate_proportions(top_k_data, tracks_info, demographics, params_dict["model"], params_dict["choice_model"], iteration)
 
             recs_merged = join_interaction_with_country(top_k_data, demographics, tracks_info)
-            jsd_rows = calculate_iteration_jsd(recs_merged, tracks_info, original_interactions_merged, params_dict["model"], params_dict["choice_model"], iteration)
-
-            # Combine JSD and proportion data
-            for jsd_row, proportion_row in zip(jsd_rows, proportion_rows):
-                jsd_row.update({'us_proportion': proportion_row['us_proportion']})
-
-            jsd_data.extend(jsd_rows)
+            jsd_df = calculate_iteration_jsd_per_user(recs_merged, tracks_info, original_interactions_merged, params_dict["model"], params_dict["choice_model"], iteration)
+            jsd_df['us_proportion'] = proportion_df['us_proportion']
+            jsd_data = pd.concat([jsd_data, jsd_df], ignore_index=True)
 
         # Save JSD values to CSV
         csv_save_path = os.path.join(experiments_folder, experiment_name, 'metrics.csv')
-        pd.DataFrame(jsd_data).to_csv(csv_save_path, index=False)
-
-        df = pd.DataFrame(jsd_data)
+        jsd_data.to_csv(csv_save_path, index=False)
 
         print("Loaded data successfully")
 
-    global_jsd_df = df[df['country'] == focus_country]['jsd'].tolist()
-    proportion_df = df[df['country'] == 'global']['us_proportion'].tolist()  # We could pick any country here, as they are all the same
+    global_jsd_df = jsd_data[jsd_data['country'] == focus_country]['jsd'].tolist()
+    proportion_df = jsd_data[jsd_data['country'] == 'global']['us_proportion'].tolist()  # We could pick any country here, as they are all the same
 
     return proportion_df, iterations, baselines, params_dict, global_jsd_df
