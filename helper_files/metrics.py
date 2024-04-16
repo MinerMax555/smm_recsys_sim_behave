@@ -104,7 +104,7 @@ def calculate_proportions(top_k_data, tracks_info, demographics, model, choice_m
     return pd.DataFrame(proportion_results)
 
 
-def join_interaction_with_country(interaction_history, demographics, tracks_info):
+def join_interaction_with_country(interaction_history, demographics, tracks_info, tracks_with_popularity):
     """
     Join interaction history with demographics to associate each interaction with a country.
 
@@ -116,25 +116,31 @@ def join_interaction_with_country(interaction_history, demographics, tracks_info
     Returns:
     DataFrame of interaction histories enriched with country information.
     """
-    # Ensure correct data types for merging
-    interaction_history['user_id'] = interaction_history['user_id'].astype(int)
-    demographics.index = demographics.index.astype(int)
-    tracks_info['item_id'] = tracks_info['item_id'].astype(int)
+    # Merge to get country and other demographic details for each interaction
+    interaction_history = interaction_history.merge(demographics, left_on='user_id', right_index=True, how='left')
+    interaction_history = interaction_history.rename(columns={'country': 'user_country'})
 
-    # Merge to get country for each interaction
-    merged_df = interaction_history.merge(demographics, left_on='user_id', right_index=True, how='left')
-    merged_df = merged_df.rename(columns={'country': 'user_country'})
+    # Merge to include track details
+    interaction_history = interaction_history.merge(tracks_info, on='item_id', how='left')
+    interaction_history = interaction_history.rename(columns={'country': 'artist_country'})
 
-    merged_df = merged_df.merge(tracks_info, on='item_id', how='left')
-    merged_df = merged_df.rename(columns={'country': 'artist_country'})
-    return merged_df
+    # Merge to include popularity bins
+    interaction_history = interaction_history.merge(tracks_with_popularity[['item_id', 'popularity_bin']], on='item_id', how='left')
+
+    return interaction_history
 
 
 def prepare_jsd_distributions(recs_merged, interactions_merged, all_item_countries):
     """
-    Prepares distributions for JSD calculation, for a specific country or globally, based on track country distribution.
+    Prepare the distributions for JSD calculation.
 
-    Parameters are the same as described previously.
+    Parameters:
+    - recs_merged: DataFrame containing top K interactions.
+    - interactions_merged: DataFrame containing global interaction history.
+    - all_item_countries: List of all countries in the dataset.
+
+    Returns:
+    Two numpy arrays representing the distributions of tracks over countries for global interactions and top K interactions.
     """
     # Calculate the distribution for global interactions (history) based on countries
     global_distribution = calculate_country_distribution(interactions_merged, all_item_countries)
@@ -146,6 +152,20 @@ def prepare_jsd_distributions(recs_merged, interactions_merged, all_item_countri
 
 
 def calculate_iteration_jsd_per_user(recs_merged, tracks_info, interactions_merged, model, choice_model, iteration):
+    """
+    Calculate the Jensen-Shannon Divergence (JSD) between history and recommendations for each user.
+
+    Parameters:
+    - recs_merged: DataFrame containing top K interactions.
+    - tracks_info: DataFrame containing tracks information.
+    - interactions_merged: DataFrame containing global interaction history.
+    - model: The name of the model used in the experiment.
+    - choice_model: The name of the choice model used in the experiment.
+    - iteration: The iteration number.
+
+    Returns:
+    DataFrame with the JSD values per user.
+    """
     unique_item_countries = tracks_info['country'].unique()
     user_ids = recs_merged['user_id'].unique()
     jsd_rows_per_user = []
@@ -215,3 +235,97 @@ def calculate_country_distribution(df, country_list):
     # Ensure distribution includes all countries present in tracks_info, filling missing values with 0
     distribution = country_counts.reindex(country_list, fill_value=0).values
     return distribution
+
+
+def create_popularity_bins(interactions_merged, tracks_info):
+    """
+    Create popularity bins for tracks based on interaction counts.
+
+    Parameters:
+    - interactions_merged: DataFrame containing global interaction history.
+    - tracks_info: DataFrame containing tracks information.
+
+    Returns:
+    DataFrame with popularity bins for each track.
+    """
+    # Calculate popularity of each track
+    popularity_counts = interactions_merged['item_id'].value_counts().rename('interaction_count')
+
+    # Merge with tracks_info
+    tracks_with_popularity = tracks_info.merge(popularity_counts, left_on='item_id', right_index=True, how='left')
+
+    # Instead of using inplace=True on a slice, directly assign the filled Series back to the DataFrame column
+    tracks_with_popularity['interaction_count'] = tracks_with_popularity['interaction_count'].fillna(0)
+
+    # Calculate quantiles for bin thresholds
+    quantiles = tracks_with_popularity['interaction_count'].quantile([0.2, 0.8])
+
+    # Assign bins
+    tracks_with_popularity['popularity_bin'] = np.select(
+        [
+            tracks_with_popularity['interaction_count'] <= quantiles[0.2],
+            tracks_with_popularity['interaction_count'] > quantiles[0.8]
+        ],
+        ['Low', 'High'], default='Medium'
+    )
+
+    return tracks_with_popularity
+
+
+def calculate_user_bin_jsd(recs_merged, interactions_merged):
+    """
+    Calculate the Jensen-Shannon Divergence (JSD) between history and recommendations for each user, based on popularity bins.
+
+    Parameters:
+    - recs_merged: DataFrame containing top K interactions.
+    - interactions_merged: DataFrame containing global interaction history.
+
+    Returns:
+    DataFrame with the JSD values per user.
+    """
+    # Get bin counts per user for recommendations and history
+    recs_bin_counts = recs_merged.groupby('user_id')['popularity_bin'].value_counts(normalize=True).unstack(fill_value=0)
+    hist_bin_counts = interactions_merged.groupby('user_id')['popularity_bin'].value_counts(normalize=True).unstack(fill_value=0)
+
+    # Ensure all bins are represented
+    all_bins = ['High', 'Medium', 'Low']
+    recs_bin_counts = recs_bin_counts.reindex(columns=all_bins, fill_value=0)
+    hist_bin_counts = hist_bin_counts.reindex(columns=all_bins, fill_value=0)
+
+    # Calculate JSD for each user
+    jsd_results = (recs_bin_counts.apply(lambda x: jensenshannon(x, hist_bin_counts.loc[x.name], base=2), axis=1)
+                   .reset_index().rename(columns={0: 'jsd'}))
+
+    jsd_results['country'] = recs_merged.groupby('user_id')['user_country'].first()
+
+    return jsd_results
+
+
+def aggregate_jsd_by_country(bin_jsd_df):
+    """
+    Aggregate JSD by country, computing mean JSD for each country.
+
+    Parameters:
+    - bin_jsd_df: DataFrame containing JSD values per user and country.
+    """
+    # Aggregate JSD by country, computing mean JSD for each country
+    aggregated_jsd = bin_jsd_df.groupby('country')['jsd'].mean().reset_index()
+    aggregated_jsd.columns = ['country', 'bin_jsd']
+    return aggregated_jsd
+
+
+def merge_jsd_dataframes(jsd_df, bin_jsd_df):
+    """
+    Merge JSD dataframes to include bin JSD values.
+
+    Parameters:
+    - jsd_df: DataFrame containing JSD values per user and country.
+    - bin_jsd_df: DataFrame containing JSD values per user and country based on popularity bins.
+
+    Returns:
+    DataFrame with JSD values per user and country, including bin JSD values.
+    """
+    aggregated_bin_jsd = aggregate_jsd_by_country(bin_jsd_df)
+    jsd_df = jsd_df.merge(aggregated_bin_jsd, on='country', how='left')
+    jsd_df['bin_jsd'].fillna(0, inplace=True)
+    return jsd_df
