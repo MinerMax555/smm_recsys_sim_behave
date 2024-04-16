@@ -250,11 +250,7 @@ def create_popularity_bins(interactions_merged, tracks_info):
     """
     # Calculate popularity of each track
     popularity_counts = interactions_merged['item_id'].value_counts().rename('interaction_count')
-
-    # Merge with tracks_info
     tracks_with_popularity = tracks_info.merge(popularity_counts, left_on='item_id', right_index=True, how='left')
-
-    # Instead of using inplace=True on a slice, directly assign the filled Series back to the DataFrame column
     tracks_with_popularity['interaction_count'] = tracks_with_popularity['interaction_count'].fillna(0)
 
     # Calculate quantiles for bin thresholds
@@ -308,7 +304,6 @@ def aggregate_jsd_by_country(bin_jsd_df):
     Parameters:
     - bin_jsd_df: DataFrame containing JSD values per user and country.
     """
-    # Aggregate JSD by country, computing mean JSD for each country
     aggregated_jsd = bin_jsd_df.groupby('country')['jsd'].mean().reset_index()
     aggregated_jsd.columns = ['country', 'bin_jsd']
     return aggregated_jsd
