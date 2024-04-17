@@ -131,25 +131,6 @@ def join_interaction_with_country(interaction_history, demographics, tracks_info
     return interaction_history
 
 
-def prepare_jsd_distributions(recs_merged, interactions_merged, all_item_countries):
-    """
-    Prepare the distributions for JSD calculation.
-
-    Parameters:
-    - recs_merged: DataFrame containing top K interactions.
-    - interactions_merged: DataFrame containing global interaction history.
-    - all_item_countries: List of all countries in the dataset.
-
-    Returns:
-    Two numpy arrays representing the distributions of tracks over countries for global interactions and top K interactions.
-    """
-
-    # Calculate the distribution for top K interactions (recommendations) based on countries
-    top_k_distribution = calculate_country_distribution(recs_merged, all_item_countries)
-
-    return top_k_distribution
-
-
 def calculate_iteration_jsd_per_user(recs_merged, tracks_info, history_distribution, model, choice_model, iteration, user_ids):
     """
     Calculate the Jensen-Shannon Divergence (JSD) between history and recommendations for each user.
