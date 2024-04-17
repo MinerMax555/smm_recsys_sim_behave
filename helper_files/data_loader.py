@@ -67,7 +67,7 @@ def calculate_prop_jsd(experiments_folder, experiment_name, iterations, tracks_i
         jsd_data = pd.read_csv(os.path.join(experiments_folder, experiment_name, 'metrics.csv'))
     else:
         print('Calculating JSD values and recommendation proportions. This may take a while...')
-        for iteration in tqdm(range(1, iterations + 1), desc='Processing Iterations'):
+        for iteration in tqdm(range(1, iterations), desc='Processing Iterations'):
             top_k_data = load_top_k_data(os.path.join(experiments_folder, experiment_name), iteration)
             proportion_df = calculate_proportions(top_k_data, tracks_info, demographics, params_dict["model"], params_dict["choice_model"], iteration)
             recs_merged = join_interaction_with_country(top_k_data, demographics, tracks_info, tracks_with_popularity)
