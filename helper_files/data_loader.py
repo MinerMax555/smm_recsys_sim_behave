@@ -50,7 +50,6 @@ def load_data(experiments_folder, experiment_name, focus_country):
 
     # Calculate the number of iterations
     iterations = len(os.listdir(os.path.join(experiments_folder, experiment_name, 'datasets')))
-    iterations = 3
 
     jsd_data = calculate_prop_jsd(experiments_folder, experiment_name, iterations, tracks_info, demographics, params_dict, original_interactions_merged, tracks_with_popularity)
 
