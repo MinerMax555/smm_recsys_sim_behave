@@ -63,44 +63,30 @@ def calculate_proportions(top_k_data, tracks_info, demographics, model, choice_m
     Returns:
     List of dictionaries with US proportion values for each country and globally.
     """
-    # This holds the combined results
-    proportion_results = []
-
-    # Calculate the proportion for each country and globally
     global_us_tracks = tracks_info[tracks_info['country'] == 'US']
     global_us_interactions = top_k_data.merge(global_us_tracks, on='item_id', how='inner')
+    proportion_results = [{
+        "us_proportion": len(global_us_interactions) / len(top_k_data),
+        "local_proportion": 0.0}]
 
-    global_proportion = len(global_us_interactions) / len(top_k_data) if len(top_k_data) > 0 else 0
-
-    # Calculate the US proportion per country
     countries = demographics['country'].unique()
     countries.sort()
+
     for country in countries:
-        # Filter for users from the specific country
         country_users = demographics[demographics['country'] == country].index
         country_top_k_data = top_k_data[top_k_data['user_id'].isin(country_users)]
-
-        # Merge with US tracks
         country_us_interactions = country_top_k_data.merge(global_us_tracks, on='item_id', how='inner')
+        country_proportion = len(country_us_interactions) / len(country_top_k_data) if len(country_top_k_data) > 0 else 0
 
-        # Calculate proportion
-        country_proportion = len(country_us_interactions) / len(country_top_k_data) if len(
-            country_top_k_data) > 0 else 0
+        # Calculate local proportion
+        local_tracks = tracks_info[tracks_info['country'] == country]
+        local_interactions = country_top_k_data.merge(local_tracks, on='item_id', how='inner')
+        local_proportion = len(local_interactions) / len(country_top_k_data) if len(country_top_k_data) > 0 else 0
+
         proportion_results.append({
-            "model": model,
-            "choice_model": choice_model,
-            "iteration": iteration,
-            "country": country,
-            "us_proportion": country_proportion
+            "us_proportion": country_proportion,
+            "local_proportion": local_proportion
         })
-
-    proportion_results.append({
-        "model": model,
-        "choice_model": choice_model,
-        "iteration": iteration,
-        "country": "global",
-        "us_proportion": global_proportion
-    })
 
     return pd.DataFrame(proportion_results)
 
@@ -173,16 +159,14 @@ def calculate_iteration_jsd_per_user(recs_merged, tracks_info, history_distribut
     # add global row
     global_jsd = jsd_raw_df['jsd'].mean()
     global_row = pd.Series(["global", len(user_ids), global_jsd], index=["user_country", "user_count", "jsd"])
-    jsd_country_df = pd.concat([jsd_country_df, global_row.to_frame().T], ignore_index=True)
+    jsd_country_df = pd.concat([global_row.to_frame().T, jsd_country_df], ignore_index=True)
 
-    jsd_country_df.rename(columns={
-        'user_country': 'country'
-    }, inplace=True)
+    jsd_country_df.rename(columns={'user_country': 'country'}, inplace=True)
     jsd_country_df['model'] = model
     jsd_country_df['choice_model'] = choice_model
     jsd_country_df['iteration'] = iteration
 
-    return jsd_country_df
+    return jsd_country_df[['model', 'choice_model', 'iteration', 'country', 'user_count', 'jsd']]
 
 
 def calculate_country_distribution(df, country_list):
@@ -291,7 +275,7 @@ def aggregate_jsd_by_country(bin_jsd_df):
     aggregated_jsd.columns = ['country', 'bin_jsd']
     global_jsd = bin_jsd_df['jsd'].mean()
     global_row = pd.DataFrame([['global', global_jsd]], columns=['country', 'bin_jsd'])
-    aggregated_jsd = pd.concat([aggregated_jsd, global_row], ignore_index=True)
+    aggregated_jsd = pd.concat([global_row, aggregated_jsd], ignore_index=True)
 
     return aggregated_jsd
 

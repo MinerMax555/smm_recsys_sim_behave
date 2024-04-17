@@ -50,6 +50,7 @@ def load_data(experiments_folder, experiment_name, focus_country):
 
     # Calculate the number of iterations
     iterations = len(os.listdir(os.path.join(experiments_folder, experiment_name, 'datasets')))
+    iterations = 3
 
     jsd_data = calculate_prop_jsd(experiments_folder, experiment_name, iterations, tracks_info, demographics, params_dict, original_interactions_merged, tracks_with_popularity)
 
@@ -92,12 +93,13 @@ def calculate_prop_jsd(experiments_folder, experiment_name, iterations, tracks_i
             recs_merged = join_interaction_with_country(top_k_data, demographics, tracks_info, tracks_with_popularity)
 
             jsd_df = calculate_iteration_jsd_per_user(recs_merged, tracks_info, history_distribution, params_dict["model"], params_dict["choice_model"], iteration, user_ids)
-            jsd_df['us_proportion'] = proportion_df['us_proportion']
 
-            # Calculate new bin-based JSD by country and merge results
             bin_jsd_df = calculate_user_bin_jsd(recs_merged, original_interactions_merged)
 
             jsd_df = merge_jsd_dataframes(jsd_df, bin_jsd_df)
+            jsd_df['us_proportion'] = proportion_df['us_proportion']
+            jsd_df['local_proportion'] = proportion_df['local_proportion']
+
             jsd_data = pd.concat([jsd_data, jsd_df], ignore_index=True)
 
         # Save JSD values to CSV
