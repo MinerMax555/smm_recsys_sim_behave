@@ -1,11 +1,12 @@
 import json
 import os
 
+import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
 from helper_files.metrics import calculate_global_baseline, calculate_proportions, join_interaction_with_country, \
-    calculate_iteration_jsd_per_user, calculate_user_bin_jsd, create_popularity_bins, merge_jsd_dataframes
+    calculate_iteration_jsd_per_user, calculate_user_bin_jsd, create_popularity_bins, merge_jsd_dataframes, calculate_country_distribution
 
 
 def load_top_k_data(experiment_dir, iteration_number):
@@ -33,7 +34,6 @@ def load_data(experiments_folder, experiment_name, focus_country):
     dataset_inter_filepath = os.path.join(input_dir_path, 'dataset.inter')
     tracks_filepath = os.path.join(input_dir_path, 'tracks.tsv')
 
-    # Load parameters
     with open(params_path) as f:
         params_dict = json.load(f)
 
@@ -71,6 +71,15 @@ def calculate_prop_jsd(experiments_folder, experiment_name, iterations, tracks_i
     }
     jsd_data = pd.DataFrame(columns=column_dtypes.keys()).astype(column_dtypes)
 
+    unique_item_countries = tracks_info['country'].unique()
+    user_ids = original_interactions_merged['user_id'].unique()
+    interactions_by_user = original_interactions_merged.groupby('user_id')
+    history_distribution = np.zeros((len(user_ids), len(unique_item_countries)))
+
+    for user_id in range(0, len(user_ids)):
+        user_interactions = interactions_by_user.get_group(user_id)
+        history_distribution[user_id] = calculate_country_distribution(user_interactions, unique_item_countries)
+
     # If csv does exist, load it, else calculate it and save the data.
     if os.path.exists(os.path.join(experiments_folder, experiment_name, 'metrics.csv')):
         print('Loading JSD values from CSV')
@@ -82,7 +91,7 @@ def calculate_prop_jsd(experiments_folder, experiment_name, iterations, tracks_i
             proportion_df = calculate_proportions(top_k_data, tracks_info, demographics, params_dict["model"], params_dict["choice_model"], iteration)
             recs_merged = join_interaction_with_country(top_k_data, demographics, tracks_info, tracks_with_popularity)
 
-            jsd_df = calculate_iteration_jsd_per_user(recs_merged, tracks_info, original_interactions_merged, params_dict["model"], params_dict["choice_model"], iteration)
+            jsd_df = calculate_iteration_jsd_per_user(recs_merged, tracks_info, history_distribution, params_dict["model"], params_dict["choice_model"], iteration, user_ids)
             jsd_df['us_proportion'] = proportion_df['us_proportion']
 
             # Calculate new bin-based JSD by country and merge results

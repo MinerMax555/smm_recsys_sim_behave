@@ -143,16 +143,14 @@ def prepare_jsd_distributions(recs_merged, interactions_merged, all_item_countri
     Returns:
     Two numpy arrays representing the distributions of tracks over countries for global interactions and top K interactions.
     """
-    # Calculate the distribution for global interactions (history) based on countries
-    global_distribution = calculate_country_distribution(interactions_merged, all_item_countries)
 
     # Calculate the distribution for top K interactions (recommendations) based on countries
     top_k_distribution = calculate_country_distribution(recs_merged, all_item_countries)
 
-    return global_distribution, top_k_distribution
+    return top_k_distribution
 
 
-def calculate_iteration_jsd_per_user(recs_merged, tracks_info, interactions_merged, model, choice_model, iteration):
+def calculate_iteration_jsd_per_user(recs_merged, tracks_info, history_distribution, model, choice_model, iteration, user_ids):
     """
     Calculate the Jensen-Shannon Divergence (JSD) between history and recommendations for each user.
 
@@ -168,25 +166,19 @@ def calculate_iteration_jsd_per_user(recs_merged, tracks_info, interactions_merg
     DataFrame with the JSD values per user.
     """
     unique_item_countries = tracks_info['country'].unique()
-    user_ids = recs_merged['user_id'].unique()
     jsd_rows_per_user = []
 
-    interactions_by_user = interactions_merged.groupby('user_id')
     recs_by_user = recs_merged.groupby('user_id')
 
     for user_id in range(0, len(user_ids)):
         user_recs = recs_by_user.get_group(user_id)
-        user_interactions = interactions_by_user.get_group(user_id)
 
-        # Prepare distributions for JSD calculation
-        history_distribution, recommendations_distribution = prepare_jsd_distributions(user_recs,
-                                                                                       user_interactions,
-                                                                                       unique_item_countries)
+        top_k_distribution = calculate_country_distribution(user_recs, unique_item_countries)
 
         jsd_rows_per_user.append({
             'user_id': user_id,
             'user_country': user_recs['user_country'].values[0],
-            'jsd': jensenshannon(history_distribution, recommendations_distribution, base=2)
+            'jsd': jensenshannon(history_distribution[user_id], top_k_distribution, base=2)
         })
 
     # Obtain the mean JSD per country
