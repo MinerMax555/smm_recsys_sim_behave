@@ -60,7 +60,17 @@ def load_data(experiments_folder, experiment_name, focus_country):
 
 
 def calculate_prop_jsd(experiments_folder, experiment_name, iterations, tracks_info, demographics, params_dict, original_interactions_merged, tracks_with_popularity):
-    jsd_data = pd.DataFrame(columns=['model', 'choice_model', 'iteration', 'country', 'user_count', 'jsd', 'us_proportion'])
+    column_dtypes = {
+        'model': 'str',
+        'choice_model': 'str',
+        'iteration': 'int',
+        'country': 'str',
+        'user_count': 'int',
+        'jsd': 'float',
+        'us_proportion': 'float'
+    }
+    jsd_data = pd.DataFrame(columns=column_dtypes.keys()).astype(column_dtypes)
+
     # If csv does exist, load it, else calculate it and save the data.
     if os.path.exists(os.path.join(experiments_folder, experiment_name, 'metrics.csv')):
         print('Loading JSD values from CSV')

@@ -309,13 +309,17 @@ def calculate_user_bin_jsd(recs_merged, interactions_merged):
 
 def aggregate_jsd_by_country(bin_jsd_df):
     """
-    Aggregate JSD by country, computing mean JSD for each country.
+    Aggregate JSD by country, computing mean JSD for each country and globally.
 
     Parameters:
     - bin_jsd_df: DataFrame containing JSD values per user and country.
     """
     aggregated_jsd = bin_jsd_df.groupby('country')['jsd'].mean().reset_index()
     aggregated_jsd.columns = ['country', 'bin_jsd']
+    global_jsd = bin_jsd_df['jsd'].mean()
+    global_row = pd.DataFrame([['global', global_jsd]], columns=['country', 'bin_jsd'])
+    aggregated_jsd = pd.concat([aggregated_jsd, global_row], ignore_index=True)
+
     return aggregated_jsd
 
 
@@ -332,5 +336,4 @@ def merge_jsd_dataframes(jsd_df, bin_jsd_df):
     """
     aggregated_bin_jsd = aggregate_jsd_by_country(bin_jsd_df)
     jsd_df = jsd_df.merge(aggregated_bin_jsd, on='country', how='left')
-    jsd_df['bin_jsd'].fillna(0, inplace=True)
     return jsd_df
