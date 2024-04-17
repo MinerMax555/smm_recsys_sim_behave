@@ -1,3 +1,4 @@
+from collections import Counter
 from time import time
 
 import numpy as np
@@ -229,10 +230,19 @@ def calculate_country_distribution(df, country_list):
     # merged_df = df.merge(tracks_info_simplified, on='item_id', how='left')
     # country_column = 'country_y' if 'country_y' in merged_df.columns else 'country'
 
+    # slightly slower method
+    """
     # Calculate proportion of tracks per country using the correct country column
     country_counts = df['artist_country'].value_counts(normalize=True)
 
     # Ensure distribution includes all countries present in tracks_info, filling missing values with 0
+    distribution = country_counts.reindex(country_list, fill_value=0).values
+    """
+
+    # faster method, identical to code used before
+    country_counter = Counter(df['artist_country'])
+    country_counts = pd.Series(country_counter)
+    country_counts /= country_counts.sum()
     distribution = country_counts.reindex(country_list, fill_value=0).values
     return distribution
 
