@@ -242,8 +242,8 @@ def calculate_country_distribution(df, country_list):
     # faster method, identical to code used before
     country_counter = Counter(df['artist_country'])
     country_counts = pd.Series(country_counter)
-    country_counts /= country_counts.sum()
     distribution = country_counts.reindex(country_list, fill_value=0).values
+    distribution = distribution / distribution.sum()
     return distribution
 
 
