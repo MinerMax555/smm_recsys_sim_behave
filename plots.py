@@ -1,3 +1,4 @@
+import argparse
 import os
 import argh
 import matplotlib.pyplot as plt
@@ -77,8 +78,15 @@ def plot_jsd(save_folder, iteration_range, jsd_values, params_dict, focus_countr
 @argh.arg('-ef', '--experiments-folder', type=str, help='Path to the experiments folder')
 @argh.arg('-ex', '--experiment-name', type=str, help='Name of the specific experiment')
 @argh.arg('-fc', '--focus-country', type=str, help='Focus country code')
-def plot_main(experiments_folder="experiments", experiment_name="sample1", focus_country="US"):
+@argh.arg('-f', '--force-recompute', action=argparse.BooleanOptionalAction, help='Force recompute the metrics')
+def plot_main(experiments_folder="experiments", experiment_name="sample1", focus_country="US", force_recompute=False):
+    experiment_folder = os.path.join(experiments_folder, experiment_name)
     plot_save_folder = os.path.join(experiments_folder, experiment_name, 'plots')
+
+    if force_recompute:
+        # delete previous metrics file
+        if os.path.exists(os.path.join(experiment_folder, 'metrics.csv')):
+            os.remove(os.path.join(experiment_folder, 'metrics.csv'))
 
     if not os.path.exists(plot_save_folder):
         os.makedirs(plot_save_folder)
