@@ -93,7 +93,8 @@ def plot_main(experiments_folder="experiments", experiment_name="sample1", focus
     elif params_dict["choice_model"] == 'us_centric':
         params_dict["choice_model"] = 'US Centric'
 
-    iterations = list(range(1, iterations+1))
+    # This intentionally excludes the last iteration beacuse for that there is only the dataset and no recommendations
+    iterations = list(range(1, iterations))
 
     # Plot the Proportions Plot
     plot_proportions(plot_save_folder, proportions, iterations, baselines, params_dict, focus_country)
