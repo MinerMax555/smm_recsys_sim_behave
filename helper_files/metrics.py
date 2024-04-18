@@ -221,7 +221,24 @@ def create_popularity_bins(interactions_merged, tracks_info):
     tracks_with_popularity['interaction_count'] = tracks_with_popularity['interaction_count'].fillna(0)
 
     # Calculate quantiles for bin thresholds
-    quantiles = tracks_with_popularity['interaction_count'].quantile([0.2, 0.8])
+    quantiles = {
+        0.2: 0,
+        0.8: 0
+    }
+    total_popularity = tracks_with_popularity['interaction_count'].sum()
+    # find lower threshold
+    for i in range(1, tracks_with_popularity['interaction_count'].max()):
+        sum_below_threshold = tracks_with_popularity[tracks_with_popularity['interaction_count'] <= i]['interaction_count'].sum()
+        if sum_below_threshold / total_popularity >= 0.2:
+            quantiles[0.2] = i
+            break
+    # find upper threshold
+    for i in range(1, tracks_with_popularity['interaction_count'].max()):
+        sum_below_threshold = tracks_with_popularity[tracks_with_popularity['interaction_count'] <= i]['interaction_count'].sum()
+        if sum_below_threshold / total_popularity >= 0.8:
+            quantiles[0.8] = i
+            break
+
 
     # Assign bins
     tracks_with_popularity['popularity_bin'] = np.select(
