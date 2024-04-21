@@ -53,7 +53,7 @@ def load_data(experiments_folder, experiment_name, focus_country):
 
     jsd_data = calculate_prop_jsd(experiments_folder, experiment_name, iterations, tracks_info, demographics, params_dict, original_interactions_merged, tracks_with_popularity)
 
-    global_jsd_df = jsd_data[jsd_data['country'] == focus_country]['jsd'].tolist()
+    global_jsd_df = jsd_data[jsd_data['country'] == 'global']['jsd'].tolist()
     proportion_df = jsd_data[jsd_data['country'] == 'global']['us_proportion'].tolist()  # We could pick any country here, as they are all the same
 
     return proportion_df, iterations, baselines, params_dict, global_jsd_df
