@@ -43,6 +43,9 @@ def load_data(experiments_folder, experiment_name, focus_country):
     tracks_info.columns = ['item_id', 'artist', 'title', 'country']
     demographics = pd.read_csv(demographics_file, delimiter='\t', header=None, names=['country', 'age', 'gender', 'signup_date'])
 
+    tracks_info['country'] = tracks_info['country'].replace('GB', 'UK')
+    demographics['country'] = demographics['country'].replace('GB', 'UK')
+
     tracks_with_popularity = create_popularity_bins(global_interactions, tracks_info)
 
     baselines = calculate_global_baseline(global_interactions, tracks_info, focus_country)
